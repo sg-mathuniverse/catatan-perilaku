@@ -47,6 +47,7 @@
           <option value="WALI_KELAS">Wali Kelas</option><option value="PEMBINA_ASRAMA">Pembina Asrama</option>
           <option value="KESISWAAN">Kesiswaan</option><option value="GURU_BK">Guru BK</option><option value="DPA">DPA</option>
         </select>
+        <select id="previewUser" class="hidden" aria-label="Pilih akun contoh"></select>
         <button type="button" id="previewButton" class="secondary">Terapkan pratinjau</button>
       </div>
     </div>
@@ -60,6 +61,7 @@
 
   <section id="formPanel" class="panel">
     <h2 class="section-title">Form pencatatan perilaku</h2>
+    <div id="previewNotice" class="notice hidden">Mode pratinjau aktif. Form dinonaktifkan agar catatan tidak tersimpan atas nama Admin.</div>
     <form id="behaviorForm">
       <div class="grid">
         <div class="field full"><label for="student">Murid *</label><select id="student" required><option value="">Memuat data murid…</option></select></div>
@@ -88,6 +90,7 @@
 <script>
   let initialData = null;
   let activePreviewRole = '';
+  let activePreviewUserId = '';
   const $ = id => document.getElementById(id);
   const roleLabels = {ADMIN:'Admin',GURU:'Guru',WALI_KELAS:'Wali Kelas',PEMBINA_ASRAMA:'Pembina Asrama',KESISWAAN:'Kesiswaan',GURU_BK:'Guru BK',DPA:'DPA'};
   const today = new Date();
@@ -105,7 +108,7 @@
   function runServer(method, args, success) {
     const runner = google.script.run.withFailureHandler(fail).withSuccessHandler(success);
     if (method === 'getInitialData') runner.getInitialData();
-    else if (method === 'getBehaviorRecords') runner.getBehaviorRecords(args || '');
+    else if (method === 'getBehaviorRecords') runner.getBehaviorRecords(args ? args.role : '', args ? args.userId : '');
     else if (method === 'saveBehavior') runner.saveBehavior(args);
   }
   function loadInitial() {
@@ -116,7 +119,10 @@
       $('userEmail').textContent = data.user.email;
       $('userRole').textContent = roleLabels[data.user.peran] || data.user.peran;
       $('adminPreview').classList.toggle('hidden', data.user.peran !== 'ADMIN');
-      if (data.user.peran === 'ADMIN') $('previewRole').value = activePreviewRole || 'ADMIN';
+      if (data.user.peran === 'ADMIN') {
+        $('previewRole').value = activePreviewRole || 'ADMIN';
+        populatePreviewUsers();
+      }
       populateStudents(data.students || []);
       populateDiscipline(data.discipline || []);
       populateCategories(data.indiscipline || []);
@@ -151,6 +157,20 @@
     const items = isIndiscipline ? (initialData.indiscipline||[]).filter(x=>String(x.kategori) === $('category').value) : (initialData.discipline||[]);
     items.sort((a,b)=>(Number(a.urutan_tampil)||999)-(Number(b.urutan_tampil)||999)).forEach(x=>el.add(new Option(x.nama_indisipliner || x.nama_disiplin, x.indisipliner_id || x.disiplin_id)));
   }
+  function populatePreviewUsers() {
+    const role = $('previewRole').value;
+    const select = $('previewUser');
+    const users = (initialData.previewUsers || []).filter(u => u.peran_akses === role);
+    select.replaceChildren(new Option(users.length ? 'Pilih akun contoh…' : 'Tidak ada akun aktif untuk peran ini',''));
+    users.forEach(u => select.add(new Option((u.nama || u.email) + ' — ' + u.email, u.user_id)));
+    select.classList.toggle('hidden', role === 'ADMIN');
+    if (role !== 'ADMIN' && users.length === 1) select.value = users[0].user_id;
+  }
+  function setPreviewFormState() {
+    const isPreview = Boolean(activePreviewRole);
+    $('previewNotice').classList.toggle('hidden', !isPreview);
+    $('behaviorForm').querySelectorAll('input,select,textarea,button').forEach(el => el.disabled = isPreview);
+  }
   function showPanel(which) {
     $('formPanel').classList.toggle('hidden',which!=='form');
     $('recordsPanel').classList.toggle('hidden',which!=='records');
@@ -162,7 +182,7 @@
     $('recordsBody').replaceChildren();
     $('recordsMessage').classList.add('hidden');
     $('recordsScope').textContent = activePreviewRole ? 'Pratinjau: '+roleLabels[activePreviewRole]+'. Data mengikuti cakupan peran yang dipilih.' : 'Rekap mengikuti batas akses akun Anda.';
-    runServer('getBehaviorRecords',activePreviewRole,records=>{
+    runServer('getBehaviorRecords',{role:activePreviewRole,userId:activePreviewUserId},records=>{
       if(!records.length){$('recordsBody').innerHTML='<tr><td colspan="7" class="empty">Belum ada catatan yang dapat ditampilkan.</td></tr>';return;}
       records.forEach(r=>{
         const tr=document.createElement('tr');
@@ -178,9 +198,17 @@
   $('showFormButton').addEventListener('click',()=>showPanel('form'));
   $('showRecordsButton').addEventListener('click',()=>showPanel('records'));
   $('refreshButton').addEventListener('click',loadInitial);
+  $('previewRole').addEventListener('change', populatePreviewUsers);
   $('previewButton').addEventListener('click',()=>{
-    activePreviewRole = $('previewRole').value === 'ADMIN' ? '' : $('previewRole').value;
+    const selectedRole = $('previewRole').value;
+    activePreviewRole = selectedRole === 'ADMIN' ? '' : selectedRole;
+    activePreviewUserId = activePreviewRole ? $('previewUser').value : '';
+    if (activePreviewRole && !activePreviewUserId) {
+      message('globalMessage','Pilih akun contoh aktif untuk peran '+roleLabels[activePreviewRole]+'.','error');
+      return;
+    }
     $('userRole').textContent = roleLabels[initialData.user.peran] + (activePreviewRole ? ' · Pratinjau '+roleLabels[activePreviewRole] : '');
+    setPreviewFormState();
     loadRecords();
   });
   $('behaviorForm').addEventListener('submit',event=>{
