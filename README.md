@@ -6,7 +6,7 @@ Aplikasi awal berbasis Google Apps Script + Google Sheets. Folder apps-script/ b
 
 - Data murid dan catatan perilaku bersifat sensitif. Jadikan repositori GitHub **Private** dan jangan pernah mengunggah spreadsheet/ekspor data nyata ke GitHub.
 - Jangan membagikan spreadsheet kepada publik. Berikan akses hanya kepada petugas yang memang membutuhkannya.
-- Web App harus dibatasi ke akun dalam Google Workspace sekolah dan dijalankan sebagai **User accessing the web app** agar identitas pengguna dapat diverifikasi. Perilaku Session.getActiveUser().getEmail() bergantung pada konfigurasi Workspace dan deployment; uji dengan akun biasa sebelum dipakai.
+- Web App harus dibatasi ke domain Google Workspace sekolah dan umumnya lebih sesuai dijalankan sebagai **Me (pemilik/deployer)** agar pengguna tidak perlu diberi akses langsung ke spreadsheet. Dalam domain Workspace yang sama, Session.getActiveUser().getEmail() umumnya dapat mengidentifikasi pengguna, tetapi hal ini bergantung pada kebijakan dan konfigurasi. Uji dengan akun biasa sebelum dipakai. Jangan membagikan spreadsheet kepada semua pengguna aplikasi hanya untuk membuat aplikasi berfungsi.
 - Backend hanya mengizinkan email yang cocok dengan domain pada konfigurasi DOMAIN_SEKOLAH dan terdaftar aktif di sheet Pengguna.
 - Ini versi awal untuk uji terbatas, belum melalui audit keamanan atau pengujian beban.
 
@@ -41,11 +41,11 @@ Pastikan setiap baris di Pengguna memiliki email Google Workspace yang benar, pe
 
 1. Di Apps Script, pilih Deploy → New deployment.
 2. Pilih jenis Web app.
-3. Pada Execute as, pilih User accessing the web app.
-4. Pada Who has access, pilih hanya pengguna di domain Google Workspace sekolah (misalnya opsi “Anyone within [organisasi]”, jika tersedia).
+3. Pada Execute as, pilih Me (akun pemilik/deployer yang berwenang mengakses spreadsheet).
+4. Pada Who has access, pilih hanya pengguna dalam domain Google Workspace sekolah (misalnya opsi “Anyone within [organisasi]”, jika tersedia).
 5. Klik Deploy, tinjau izin yang diminta, lalu salin URL Web App.
 6. Uji dahulu menggunakan akun yang terdaftar dan aktif. Coba juga akun di luar daftar, akun nonaktif, dan akun di luar domain: semuanya harus ditolak.
-7. Jika identitas email kosong atau tidak cocok, jangan ubah akses menjadi publik. Periksa kebijakan administrator Workspace dan pengaturan deployment bersama admin TI sekolah.
+7. Jika identitas email kosong atau tidak cocok, jangan ubah akses menjadi publik dan jangan memberi semua pengguna akses langsung ke spreadsheet. Periksa kebijakan administrator Workspace dan pengaturan deployment bersama admin TI sekolah.
 
 ## Peran dan cakupan
 
