@@ -30,22 +30,25 @@ Pastikan setiap baris di Pengguna memiliki email Google Workspace yang benar, pe
 ## Menyiapkan Apps Script
 
 1. Buka spreadsheet sekolah.
-2. Pilih Ekstensi → Apps Script.
-3. Buat file skrip bernama Code.gs; salin isi apps-script/Code.gs ke dalamnya.
-4. Tambahkan file HTML bernama index; salin isi apps-script/index.html ke dalamnya.
-5. Simpan proyek.
-6. Pada sheet Konfigurasi, isi domain sekolah seperti tabel di atas.
-7. Periksa ulang header setiap sheet dan status aktif akun pengguna.
+2. Pilih **Ekstensi → Apps Script**.
+3. Buka file `Code.gs` di repositori ini, lalu salin seluruh isinya ke `Code.gs` pada proyek Apps Script yang terhubung dengan spreadsheet.
+4. **Tidak perlu membuat file HTML di Apps Script.** Fungsi `doGet()` mengambil antarmuka langsung dari `index.html` di root repositori GitHub. Perubahan tampilan di GitHub akan dimuat setelah cache frontend berakhir (maksimal sekitar 5 menit).
+5. Pada sheet `Konfigurasi`, isi `DOMAIN_SEKOLAH` dengan domain Workspace sekolah yang benar, tanpa tanda @.
+6. Periksa header sheet, referensi perilaku, serta email dan status aktif pengguna.
+7. Simpan proyek Apps Script.
 
 ## Deploy sebagai Web App
 
-1. Di Apps Script, pilih Deploy → New deployment.
-2. Pilih jenis Web app.
-3. Pada Execute as, pilih Me (akun pemilik/deployer yang berwenang mengakses spreadsheet).
-4. Pada Who has access, pilih hanya pengguna dalam domain Google Workspace sekolah (misalnya opsi “Anyone within [organisasi]”, jika tersedia).
-5. Klik Deploy, tinjau izin yang diminta, lalu salin URL Web App.
-6. Uji dahulu menggunakan akun yang terdaftar dan aktif. Coba juga akun di luar daftar, akun nonaktif, dan akun di luar domain: semuanya harus ditolak.
-7. Jika identitas email kosong atau tidak cocok, jangan ubah akses menjadi publik dan jangan memberi semua pengguna akses langsung ke spreadsheet. Periksa kebijakan administrator Workspace dan pengaturan deployment bersama admin TI sekolah.
+1. Di Apps Script, pilih **Deploy → New deployment**.
+2. Pilih jenis **Web app**.
+3. Pada **Execute as**, pilih **Me** (akun pemilik/deployer yang berwenang mengakses spreadsheet).
+4. Pada **Who has access**, pilih hanya pengguna dalam domain Google Workspace sekolah, misalnya opsi **Anyone within [organisasi]** jika tersedia. Jangan pilih akses publik.
+5. Klik **Deploy**, tinjau izin yang diminta, lalu salin URL Web App.
+6. Saat diminta, izinkan Apps Script mengakses spreadsheet dan mengambil antarmuka dari GitHub.
+7. Uji dengan akun sekolah yang aktif dan terdaftar. Akun di luar domain, tidak terdaftar, atau nonaktif harus ditolak.
+8. Jika email akun tidak dapat diverifikasi atau muncul pesan akses ditolak, **jangan ubah akses menjadi publik**. Minta administrator TI sekolah memeriksa kebijakan Google Workspace dan deployment.
+
+**URL yang digunakan guru adalah URL Web App Apps Script, bukan URL GitHub Pages.** GitHub menyimpan antarmuka dan kode sumber; Apps Script memverifikasi pengguna serta membaca/menulis Google Sheets.
 
 ## Peran dan cakupan
 
@@ -65,25 +68,15 @@ Preview admin memerlukan setidaknya satu akun aktif untuk peran yang ingin ditam
 - Lakukan uji dengan data simulasi terlebih dahulu sebelum memasukkan catatan nyata.
 
 
-## Frontend GitHub Pages — prototipe
+## Frontend GitHub
 
-File `index.html` di akar repositori adalah prototipe frontend statis untuk menguji tampilan dan alur antarmuka. Prototipe ini:
-- menggunakan data fiktif;
-- memiliki dashboard, grafik ilustratif, rekap dengan pencarian/filter, navigasi, dan formulir demo;
-- hanya menyimpan catatan baru di memori halaman, tidak mengirimkannya ke Google Sheets;
-- belum memiliki login Google, backend API, atau pembatasan akses produksi.
+File `index.html` di root repositori adalah antarmuka utama aplikasi. Apps Script mengambil file ini langsung dari GitHub saat halaman Web App dibuka (hasilnya di-cache sekitar 5 menit). Dengan begitu, perubahan desain bisa dilakukan pada file GitHub tanpa menyalin HTML ke editor Apps Script.
 
-**Jangan masukkan data murid asli ke prototipe ini.** Frontend GitHub Pages bersifat publik jika diterbitkan dari repositori publik.
+- URL untuk pemakaian sehari-hari adalah URL Web App Apps Script.
+- URL GitHub Pages (jika diaktifkan) hanya menampilkan file frontend statis dan tidak memiliki sesi autentikasi `google.script.run`. Jangan gunakan URL Pages untuk mencatat atau melihat data.
+- Jangan commit data murid asli, ekspor spreadsheet, kredensial, atau token ke repositori.
+- Karena repositori saat ini publik, pertimbangkan untuk menjadikannya privat jika paket dan kebutuhan publikasi mengizinkan. File frontend tidak boleh berisi data nyata.
 
-### Menerbitkan prototipe
+## Catatan penting sebelum penggunaan nyata
 
-1. Buka repositori GitHub, lalu **Settings → Pages**.
-2. Pada **Build and deployment**, pilih **Deploy from a branch**.
-3. Pilih branch `main` dan folder `/ (root)`, lalu klik **Save**.
-4. Tunggu proses publikasi selesai; GitHub akan menampilkan URL Pages pada halaman tersebut.
-
-Penerbitan Pages hanya menerbitkan frontend demo. Ini **tidak** menghubungkan aplikasi ke Sheets dan bukan tanda bahwa login atau keamanan backend sudah siap.
-
-### Arsitektur integrasi berikutnya
-
-Target pengembangan adalah GitHub Pages sebagai frontend, Google Apps Script sebagai backend, dan Google Sheets sebagai penyimpanan. Integrasi tidak boleh menganggap email yang dikirim browser sebagai identitas tepercaya. Sebelum memakai data nyata, implementasikan dan uji autentikasi yang dapat diverifikasi server, izin per peran pada setiap permintaan, validasi input, serta penanganan akses ditolak. Jangan membuat endpoint yang membuka isi spreadsheet kepada publik.
+Versi ini adalah integrasi awal dan belum diaudit secara independen. Uji login, pembatasan rekap, pembuatan catatan, audit log, dan akun yang ditolak dengan data simulasi terlebih dahulu. Pastikan administrator sekolah menyetujui penggunaan data dan akses Web App. Jangan pernah membuka endpoint atau spreadsheet kepada publik demi kemudahan integrasi.
