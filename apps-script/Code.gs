@@ -1,7 +1,7 @@
 /**
  * Catatan Perilaku Murid — Apps Script backend (tahap awal).
- * Deploy sebagai Web App: Execute as "User accessing the web app";
- * akses dibatasi ke pengguna dalam domain Google Workspace sekolah.
+ * Deploy sebagai Web App: Execute as "Me" (pemilik/deployer),
+ * akses dibatasi ke domain Google Workspace sekolah. Uji email aktif dahulu.
  *
  * Sebelum deploy:
  * 1. Pastikan ID spreadsheet benar.
