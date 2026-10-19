@@ -24,17 +24,30 @@ const REQUIRED_SHEETS = [
   'Catatan_Perilaku', 'Audit_Log', 'Konfigurasi'
 ];
 
+/**
+ * Menyajikan UI langsung dari index.html di root GitHub.
+ * Salin file Code.gs ini ke Apps Script; file HTML tidak perlu dibuat di Apps Script.
+ */
 function doGet() {
-  const user = getCurrentUser_();
-  const template = HtmlService.createTemplateFromFile('index');
-  template.initialUser = { nama: user.nama, email: user.email, peran: user.peran_akses };
-  return template.evaluate()
+  getCurrentUser_();
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'catatan_perilaku_github_frontend_v1';
+  let html = cache.get(cacheKey);
+  if (!html) {
+    const url = 'https://raw.githubusercontent.com/sg-mathuniverse/catatan-perilaku/main/index.html';
+    const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+    if (response.getResponseCode() !== 200) {
+      throw new Error('Antarmuka GitHub gagal dimuat (HTTP ' + response.getResponseCode() + '). Coba lagi beberapa saat lagi.');
+    }
+    html = response.getContentText('UTF-8');
+    if (!html || html.indexOf('Catatan Perilaku Murid') === -1) {
+      throw new Error('File index.html di GitHub kosong atau tidak valid.');
+    }
+    cache.put(cacheKey, html, 300);
+  }
+  return HtmlService.createHtmlOutput(html)
     .setTitle('Catatan Perilaku Murid')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-}
-
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
 function getInitialData() {
@@ -70,6 +83,12 @@ function saveBehavior(payload) {
     throw new Error('Murid, tanggal kejadian, dan jenis perilaku wajib diisi.');
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(incidentDate)) throw new Error('Format tanggal kejadian tidak valid.');
+  const notes = str_(payload.keterangan);
+  if (!notes) throw new Error('Keterangan faktual wajib diisi.');
+  if (notes.length > 3000 || str_(payload.intervensi).length > 3000) {
+    throw new Error('Keterangan dan intervensi maksimal 3.000 karakter.');
+  }
+  if (str_(payload.lokasi_kejadian).length > 200) throw new Error('Lokasi maksimal 200 karakter.');
 
   const ss = getSpreadsheet_();
   const students = readObjects_(ss, 'Murid');
@@ -90,9 +109,6 @@ function saveBehavior(payload) {
       .find(x => str_(x.indisipliner_id) === indisciplineId && isActive_(x.status_aktif));
     if (!item) throw new Error('Pilih item indisipliner yang valid.');
     category = str_(item.kategori);
-    if (payload.kategori && str_(payload.kategori) !== category) {
-      throw new Error('Kategori tidak sesuai dengan item indisipliner yang dipilih.');
-    }
   }
 
   const now = new Date();
