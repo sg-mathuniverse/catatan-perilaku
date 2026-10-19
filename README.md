@@ -1,0 +1,65 @@
+# Catatan Perilaku Murid
+
+Aplikasi awal berbasis Google Apps Script + Google Sheets. Folder apps-script/ berisi kode sumber yang perlu disalin ke proyek Apps Script yang terhubung dengan spreadsheet sekolah.
+
+## Keamanan sebelum dipakai
+
+- Data murid dan catatan perilaku bersifat sensitif. Jadikan repositori GitHub **Private** dan jangan pernah mengunggah spreadsheet/ekspor data nyata ke GitHub.
+- Jangan membagikan spreadsheet kepada publik. Berikan akses hanya kepada petugas yang memang membutuhkannya.
+- Web App harus dibatasi ke akun dalam Google Workspace sekolah dan dijalankan sebagai **User accessing the web app** agar identitas pengguna dapat diverifikasi. Perilaku Session.getActiveUser().getEmail() bergantung pada konfigurasi Workspace dan deployment; uji dengan akun biasa sebelum dipakai.
+- Backend hanya mengizinkan email yang cocok dengan domain pada konfigurasi DOMAIN_SEKOLAH dan terdaftar aktif di sheet Pengguna.
+- Ini versi awal untuk uji terbatas, belum melalui audit keamanan atau pengujian beban.
+
+## Sheet yang dibutuhkan
+
+Nama sheet dan header baris pertama harus sesuai dengan database yang sudah dibuat:
+Pengguna, Murid, Kelas, Area_Asrama, Referensi_Disiplin, Referensi_Indisipliner, Catatan_Perilaku, Audit_Log, Konfigurasi.
+
+Nilai status_aktif yang dikenali sebagai aktif: AKTIF, ACTIVE, YA, TRUE, atau 1.
+
+Di sheet Konfigurasi, tambahkan satu baris:
+
+| config_key | config_value | keterangan |
+| --- | --- | --- |
+| DOMAIN_SEKOLAH | domain-sekolah.sch.id | Domain Google Workspace sekolah tanpa tanda @ |
+
+Ganti contoh domain dengan domain asli sekolah. Jangan gunakan teks domain-sekolah.sch.id apa adanya.
+
+Pastikan setiap baris di Pengguna memiliki email Google Workspace yang benar, peran_akses yang valid (ADMIN, GURU, WALI_KELAS, PEMBINA_ASRAMA, KESISWAAN, GURU_BK, DPA) dan status aktif. user_id harus unik. Wali kelas harus mempunyai kelas_id; pembina asrama harus mempunyai area_asrama_id.
+
+## Menyiapkan Apps Script
+
+1. Buka spreadsheet sekolah.
+2. Pilih Ekstensi → Apps Script.
+3. Buat file skrip bernama Code.gs; salin isi apps-script/Code.gs ke dalamnya.
+4. Tambahkan file HTML bernama index; salin isi apps-script/index.html ke dalamnya.
+5. Simpan proyek.
+6. Pada sheet Konfigurasi, isi domain sekolah seperti tabel di atas.
+7. Periksa ulang header setiap sheet dan status aktif akun pengguna.
+
+## Deploy sebagai Web App
+
+1. Di Apps Script, pilih Deploy → New deployment.
+2. Pilih jenis Web app.
+3. Pada Execute as, pilih User accessing the web app.
+4. Pada Who has access, pilih hanya pengguna di domain Google Workspace sekolah (misalnya opsi “Anyone within [organisasi]”, jika tersedia).
+5. Klik Deploy, tinjau izin yang diminta, lalu salin URL Web App.
+6. Uji dahulu menggunakan akun yang terdaftar dan aktif. Coba juga akun di luar daftar, akun nonaktif, dan akun di luar domain: semuanya harus ditolak.
+7. Jika identitas email kosong atau tidak cocok, jangan ubah akses menjadi publik. Periksa kebijakan administrator Workspace dan pengaturan deployment bersama admin TI sekolah.
+
+## Peran dan cakupan
+
+- GURU: hanya dapat melihat catatan yang dibuat oleh akun tersebut.
+- WALI_KELAS: catatan untuk kelas pada profil pengguna.
+- PEMBINA_ASRAMA: catatan untuk area asrama pada profil pengguna.
+- KESISWAAN, GURU_BK, DPA, ADMIN: dapat melihat semua catatan.
+- Admin dapat mempratinjau cakupan rekap peran lain dengan memilih akun contoh aktif. Saat pratinjau peran lain aktif, form pencatatan dinonaktifkan agar tidak ada catatan yang tanpa sengaja tersimpan atas nama Admin.
+
+Preview admin memerlukan setidaknya satu akun aktif untuk peran yang ingin ditampilkan. Gunakan akun contoh yang ditunjuk sekolah, dan pastikan data yang ditampilkan saat sosialisasi sesuai kebijakan privasi sekolah.
+
+## Batasan versi awal
+
+- Daftar murid aktif disediakan untuk form pencatatan; batasi penggunaan sesuai kebijakan sekolah.
+- Referensi disiplin dan indisipliner harus diisi agar item bisa dipilih.
+- Pengeditan/penghapusan catatan, ekspor, dashboard statistik, manajemen pengguna dari UI, serta workflow persetujuan belum dibuat.
+- Lakukan uji dengan data simulasi terlebih dahulu sebelum memasukkan catatan nyata.
