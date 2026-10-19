@@ -50,7 +50,13 @@ function getInitialData() {
       kelas_id: str_(x.kelas_id), area_asrama_id: str_(x.area_asrama_id)
     })),
     discipline: readObjects_(ss, 'Referensi_Disiplin').filter(x => isActive_(x.status_aktif)),
-    indiscipline: readObjects_(ss, 'Referensi_Indisipliner').filter(x => isActive_(x.status_aktif))
+    indiscipline: readObjects_(ss, 'Referensi_Indisipliner').filter(x => isActive_(x.status_aktif)),
+    previewUsers: user.peran_akses === ROLE.ADMIN
+      ? readObjects_(ss, 'Pengguna').filter(x => isActive_(x.status_aktif)).map(x => ({
+          user_id: str_(x.user_id), nama: str_(x.nama), email: str_(x.email),
+          peran_akses: str_(x.peran_akses).toUpperCase(), kelas_id: str_(x.kelas_id),
+          area_asrama_id: str_(x.area_asrama_id)
+        })) : []
   };
 }
 
@@ -124,14 +130,28 @@ function saveBehavior(payload) {
  * Admin boleh mempratinjau cakupan tampilan peran lain.
  * Parameter previewRole hanya memengaruhi cakupan tampilan; tidak mengubah hak akses aktual.
  */
-function getBehaviorRecords(previewRole) {
+function getBehaviorRecords(previewRole, previewUserId) {
   const user = getCurrentUser_();
-  const effectiveRole = user.peran_akses === ROLE.ADMIN && previewRole && ROLE[previewRole]
-    ? previewRole : user.peran_akses;
+  let effectiveRole = user.peran_akses;
+  let scopeUser = user;
+
+  if (user.peran_akses === ROLE.ADMIN && previewRole && ROLE[previewRole]) {
+    effectiveRole = previewRole;
+    if (effectiveRole !== ROLE.ADMIN) {
+      const candidates = readObjects_(getSpreadsheet_(), 'Pengguna')
+        .filter(x => isActive_(x.status_aktif) && str_(x.peran_akses).toUpperCase() === effectiveRole);
+      const selected = candidates.find(x => str_(x.user_id) === str_(previewUserId));
+      if (!selected) {
+        throw new Error('Untuk melihat rekap sesuai cakupan peran, pilih akun contoh aktif dengan peran ' + effectiveRole + '.');
+      }
+      scopeUser = selected;
+    }
+  }
+
   const ss = getSpreadsheet_();
   const records = readObjects_(ss, 'Catatan_Perilaku')
     .filter(r => !r.status_catatan || str_(r.status_catatan).toUpperCase() === 'AKTIF');
-  const visible = records.filter(r => canSeeRecord_(user, effectiveRole, r));
+  const visible = records.filter(r => canSeeRecord_(scopeUser, effectiveRole, r));
   return visible.map(r => ({
     catatan_id: str_(r.catatan_id),
     nama_murid: str_(r.nama_murid_snapshot),
