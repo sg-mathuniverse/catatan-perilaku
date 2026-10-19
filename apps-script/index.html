@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172033;background:#f5f7fb}
+    *{box-sizing:border-box}body{margin:0}header{background:#173b67;color:#fff;padding:22px max(18px,calc((100vw - 1120px)/2))}
+    header h1{margin:0;font-size:1.35rem}header p{margin:6px 0 0;color:#dbeafe;font-size:.93rem}
+    main{max-width:1120px;margin:22px auto;padding:0 16px 42px}.topline{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:18px}
+    .identity,.panel{background:#fff;border:1px solid #e0e6ef;border-radius:14px;padding:18px}.identity{flex:1;min-width:240px}.identity strong{display:block}
+    .muted{color:#68758a;font-size:.9rem}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+    button,select,input,textarea{font:inherit}button{border:0;border-radius:9px;padding:10px 14px;background:#1f5a96;color:#fff;cursor:pointer;font-weight:600}
+    button.secondary{background:#e7eef7;color:#173b67}button:disabled{opacity:.55;cursor:wait}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.field{display:flex;flex-direction:column;gap:6px}
+    label{font-size:.9rem;font-weight:650}.field input,.field select,.field textarea{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:white;color:#172033}
+    .field textarea{min-height:82px;resize:vertical}.full{grid-column:1/-1}.section-title{margin:0 0 14px;font-size:1.08rem}
+    .notice{padding:12px 14px;border-radius:9px;background:#edf5ff;color:#24486f;margin:12px 0}.error{background:#fff0f0;color:#9b2525}.success{background:#e9f8ee;color:#176337}
+    .hidden{display:none!important}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;padding:11px 10px;border-bottom:1px solid #e5eaf1;vertical-align:top}th{background:#f8fafc;white-space:nowrap}
+    .pill{display:inline-block;border-radius:999px;padding:4px 8px;background:#edf2f8;color:#334155;font-size:.78rem}
+    .empty{padding:24px;text-align:center;color:#68758a}.preview{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    @media(max-width:680px){.grid{grid-template-columns:1fr}.full{grid-column:auto}header{padding:18px}.identity,.panel{padding:14px}main{margin-top:14px}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Catatan Perilaku Murid</h1>
+  <p>Pencatatan dan rekap perilaku sekolah dan asrama</p>
+</header>
+<main>
+  <div id="globalMessage" class="notice hidden" role="status"></div>
+  <div class="topline">
+    <div class="identity">
+      <strong id="userName">Memuat akun…</strong>
+      <span class="muted" id="userEmail"></span>
+      <div style="margin-top:8px"><span class="pill" id="userRole">Memeriksa akses</span></div>
+    </div>
+    <div id="adminPreview" class="panel hidden">
+      <div class="preview">
+        <div>
+          <label for="previewRole">Pratinjau tampilan peran</label>
+          <div class="muted">Hanya mengubah cakupan tampilan, bukan hak akses akun.</div>
+        </div>
+        <select id="previewRole">
+          <option value="ADMIN">Admin</option><option value="GURU">Guru</option>
+          <option value="WALI_KELAS">Wali Kelas</option><option value="PEMBINA_ASRAMA">Pembina Asrama</option>
+          <option value="KESISWAAN">Kesiswaan</option><option value="GURU_BK">Guru BK</option><option value="DPA">DPA</option>
+        </select>
+        <button type="button" id="previewButton" class="secondary">Terapkan pratinjau</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button type="button" id="showFormButton">Catat Perilaku</button>
+    <button type="button" id="showRecordsButton" class="secondary">Rekap Catatan</button>
+    <button type="button" id="refreshButton" class="secondary">Muat ulang</button>
+  </div>
+
+  <section id="formPanel" class="panel">
+    <h2 class="section-title">Form pencatatan perilaku</h2>
+    <form id="behaviorForm">
+      <div class="grid">
+        <div class="field full"><label for="student">Murid *</label><select id="student" required><option value="">Memuat data murid…</option></select></div>
+        <div class="field"><label for="incidentDate">Tanggal kejadian *</label><input id="incidentDate" type="date" required></div>
+        <div class="field"><label for="incidentTime">Jam kejadian (opsional)</label><input id="incidentTime" type="time"></div>
+        <div class="field"><label for="behaviorType">Jenis perilaku *</label><select id="behaviorType" required><option value="DISIPLIN">Disiplin</option><option value="INDISIPLINER">Indisipliner</option></select></div>
+        <div class="field hidden" id="categoryField"><label for="category">Kategori indisipliner *</label><select id="category"><option value="">Pilih kategori</option></select></div>
+        <div class="field full"><label for="behaviorItem">Item perilaku *</label><select id="behaviorItem" required><option value="">Pilih jenis perilaku terlebih dahulu</option></select></div>
+        <div class="field"><label for="location">Lokasi kejadian (opsional)</label><input id="location" maxlength="200" placeholder="Contoh: ruang kelas, aula, asrama"></div>
+        <div class="field"><label for="notes">Keterangan (opsional)</label><textarea id="notes" maxlength="3000" placeholder="Keterangan faktual singkat"></textarea></div>
+        <div class="field full"><label for="intervention">Intervensi / tindak lanjut (opsional)</label><textarea id="intervention" maxlength="3000" placeholder="Tindak lanjut yang telah dilakukan atau direncanakan"></textarea></div>
+        <div class="field full"><button id="saveButton" type="submit">Simpan catatan</button></div>
+      </div>
+    </form>
+    <div id="formMessage" class="notice hidden" role="status"></div>
+  </section>
+
+  <section id="recordsPanel" class="panel hidden">
+    <h2 class="section-title">Rekap catatan perilaku</h2>
+    <p class="muted" id="recordsScope">Rekap mengikuti batas akses akun Anda.</p>
+    <div id="recordsMessage" class="notice hidden" role="status"></div>
+    <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Murid</th><th>Jenis</th><th>Kategori</th><th>Keterangan</th><th>Intervensi</th><th>Pelapor</th></tr></thead><tbody id="recordsBody"></tbody></table></div>
+  </section>
+  <p class="muted" style="margin-top:16px">Versi awal untuk pengujian. Gunakan sesuai kebijakan privasi dan perlindungan data murid di sekolah.</p>
+</main>
+<script>
+  let initialData = null;
+  let activePreviewRole = '';
+  const $ = id => document.getElementById(id);
+  const roleLabels = {ADMIN:'Admin',GURU:'Guru',WALI_KELAS:'Wali Kelas',PEMBINA_ASRAMA:'Pembina Asrama',KESISWAAN:'Kesiswaan',GURU_BK:'Guru BK',DPA:'DPA'};
+  const today = new Date();
+  $('incidentDate').value = [today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
+
+  function message(id, text, type='') {
+    const el = $(id); el.textContent = text; el.className = 'notice' + (type ? ' '+type : '');
+    el.classList.remove('hidden');
+  }
+  function clearMessage(id){$(id).classList.add('hidden');}
+  function fail(error) {
+    const text = error && error.message ? error.message : String(error || 'Terjadi kesalahan.');
+    message('globalMessage', text, 'error');
+  }
+  function runServer(method, args, success) {
+    const runner = google.script.run.withFailureHandler(fail).withSuccessHandler(success);
+    if (method === 'getInitialData') runner.getInitialData();
+    else if (method === 'getBehaviorRecords') runner.getBehaviorRecords(args || '');
+    else if (method === 'saveBehavior') runner.saveBehavior(args);
+  }
+  function loadInitial() {
+    $('refreshButton').disabled = true;
+    runServer('getInitialData', null, data => {
+      initialData = data;
+      $('userName').textContent = data.user.nama || data.user.email;
+      $('userEmail').textContent = data.user.email;
+      $('userRole').textContent = roleLabels[data.user.peran] || data.user.peran;
+      $('adminPreview').classList.toggle('hidden', data.user.peran !== 'ADMIN');
+      if (data.user.peran === 'ADMIN') $('previewRole').value = activePreviewRole || 'ADMIN';
+      populateStudents(data.students || []);
+      populateDiscipline(data.discipline || []);
+      populateCategories(data.indiscipline || []);
+      updateItems();
+      $('refreshButton').disabled = false;
+      clearMessage('globalMessage');
+      loadRecords();
+    });
+  }
+  function populateStudents(students) {
+    const el = $('student'); el.replaceChildren(new Option('Pilih murid',''));
+    students.sort((a,b)=>a.nama_murid.localeCompare(b.nama_murid,'id')).forEach(s=>{
+      const c = (initialData.classes||[]).find(x=>String(x.kelas_id)===String(s.kelas_id));
+      const d = (initialData.dormAreas||[]).find(x=>String(x.area_asrama_id)===String(s.area_asrama_id));
+      const detail = [c && c.nama_kelas,d && d.nama_area].filter(Boolean).join(' · ');
+      el.add(new Option(s.nama_murid + (detail ? ' — '+detail : ''), s.murid_id));
+    });
+  }
+  function populateDiscipline(items) {
+    const el = $('behaviorItem'); el.replaceChildren(new Option('Pilih item disiplin',''));
+    items.sort((a,b)=>(Number(a.urutan_tampil)||999)-(Number(b.urutan_tampil)||999)).forEach(x=>el.add(new Option(x.nama_disiplin,x.disiplin_id)));
+  }
+  function populateCategories(items) {
+    const el = $('category'); el.replaceChildren(new Option('Pilih kategori',''));
+    [...new Set(items.map(x=>String(x.kategori||'').trim()).filter(Boolean))].forEach(x=>el.add(new Option(x,x)));
+  }
+  function updateItems() {
+    const isIndiscipline = $('behaviorType').value === 'INDISIPLINER';
+    $('categoryField').classList.toggle('hidden',!isIndiscipline);
+    $('category').required = isIndiscipline;
+    const el = $('behaviorItem'); el.replaceChildren(new Option(isIndiscipline?'Pilih item indisipliner':'Pilih item disiplin',''));
+    const items = isIndiscipline ? (initialData.indiscipline||[]).filter(x=>String(x.kategori) === $('category').value) : (initialData.discipline||[]);
+    items.sort((a,b)=>(Number(a.urutan_tampil)||999)-(Number(b.urutan_tampil)||999)).forEach(x=>el.add(new Option(x.nama_indisipliner || x.nama_disiplin, x.indisipliner_id || x.disiplin_id)));
+  }
+  function showPanel(which) {
+    $('formPanel').classList.toggle('hidden',which!=='form');
+    $('recordsPanel').classList.toggle('hidden',which!=='records');
+    $('showFormButton').classList.toggle('secondary',which!=='form');
+    $('showRecordsButton').classList.toggle('secondary',which!=='records');
+    if(which==='records') loadRecords();
+  }
+  function loadRecords() {
+    $('recordsBody').replaceChildren();
+    $('recordsMessage').classList.add('hidden');
+    $('recordsScope').textContent = activePreviewRole ? 'Pratinjau: '+roleLabels[activePreviewRole]+'. Data mengikuti cakupan peran yang dipilih.' : 'Rekap mengikuti batas akses akun Anda.';
+    runServer('getBehaviorRecords',activePreviewRole,records=>{
+      if(!records.length){$('recordsBody').innerHTML='<tr><td colspan="7" class="empty">Belum ada catatan yang dapat ditampilkan.</td></tr>';return;}
+      records.forEach(r=>{
+        const tr=document.createElement('tr');
+        [r.tanggal_kejadian,r.nama_murid,r.jenis_perilaku+(r.kategori?' — '+r.kategori:''),r.kategori,r.keterangan,r.intervensi,r.nama_pelapor].forEach(value=>{
+          const td=document.createElement('td');td.textContent=value||'—';tr.appendChild(td);
+        });
+        $('recordsBody').appendChild(tr);
+      });
+    });
+  }
+  $('behaviorType').addEventListener('change',updateItems);
+  $('category').addEventListener('change',updateItems);
+  $('showFormButton').addEventListener('click',()=>showPanel('form'));
+  $('showRecordsButton').addEventListener('click',()=>showPanel('records'));
+  $('refreshButton').addEventListener('click',loadInitial);
+  $('previewButton').addEventListener('click',()=>{
+    activePreviewRole = $('previewRole').value === 'ADMIN' ? '' : $('previewRole').value;
+    $('userRole').textContent = roleLabels[initialData.user.peran] + (activePreviewRole ? ' · Pratinjau '+roleLabels[activePreviewRole] : '');
+    loadRecords();
+  });
+  $('behaviorForm').addEventListener('submit',event=>{
+    event.preventDefault();clearMessage('formMessage');
+    const kind=$('behaviorType').value;
+    const payload={
+      murid_id:$('student').value,tanggal_kejadian:$('incidentDate').value,jam_kejadian:$('incidentTime').value,
+      lokasi_kejadian:$('location').value,jenis_perilaku:kind,kategori:$('category').value,
+      disiplin_id:kind==='DISIPLIN' ? $('behaviorItem').value : '',
+      indisipliner_id:kind==='INDISIPLINER' ? $('behaviorItem').value : '',
+      keterangan:$('notes').value,intervensi:$('intervention').value
+    };
+    $('saveButton').disabled=true;
+    runServer('saveBehavior',payload,result=>{
+      $('saveButton').disabled=false;
+      $('behaviorForm').reset();
+      $('incidentDate').value=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
+      $('behaviorType').value='DISIPLIN';updateItems();
+      message('formMessage',result.message+' ID: '+result.catatan_id,'success');
+      loadRecords();
+    });
+  });
+  loadInitial();
+</script>
+</body>
+</html>
