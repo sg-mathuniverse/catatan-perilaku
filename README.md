@@ -63,3 +63,27 @@ Preview admin memerlukan setidaknya satu akun aktif untuk peran yang ingin ditam
 - Referensi disiplin dan indisipliner harus diisi agar item bisa dipilih.
 - Pengeditan/penghapusan catatan, ekspor, dashboard statistik, manajemen pengguna dari UI, serta workflow persetujuan belum dibuat.
 - Lakukan uji dengan data simulasi terlebih dahulu sebelum memasukkan catatan nyata.
+
+
+## Frontend GitHub Pages — prototipe
+
+File `index.html` di akar repositori adalah prototipe frontend statis untuk menguji tampilan dan alur antarmuka. Prototipe ini:
+- menggunakan data fiktif;
+- memiliki dashboard, grafik ilustratif, rekap dengan pencarian/filter, navigasi, dan formulir demo;
+- hanya menyimpan catatan baru di memori halaman, tidak mengirimkannya ke Google Sheets;
+- belum memiliki login Google, backend API, atau pembatasan akses produksi.
+
+**Jangan masukkan data murid asli ke prototipe ini.** Frontend GitHub Pages bersifat publik jika diterbitkan dari repositori publik.
+
+### Menerbitkan prototipe
+
+1. Buka repositori GitHub, lalu **Settings → Pages**.
+2. Pada **Build and deployment**, pilih **Deploy from a branch**.
+3. Pilih branch `main` dan folder `/ (root)`, lalu klik **Save**.
+4. Tunggu proses publikasi selesai; GitHub akan menampilkan URL Pages pada halaman tersebut.
+
+Penerbitan Pages hanya menerbitkan frontend demo. Ini **tidak** menghubungkan aplikasi ke Sheets dan bukan tanda bahwa login atau keamanan backend sudah siap.
+
+### Arsitektur integrasi berikutnya
+
+Target pengembangan adalah GitHub Pages sebagai frontend, Google Apps Script sebagai backend, dan Google Sheets sebagai penyimpanan. Integrasi tidak boleh menganggap email yang dikirim browser sebagai identitas tepercaya. Sebelum memakai data nyata, implementasikan dan uji autentikasi yang dapat diverifikasi server, izin per peran pada setiap permintaan, validasi input, serta penanganan akses ditolak. Jangan membuat endpoint yang membuka isi spreadsheet kepada publik.
