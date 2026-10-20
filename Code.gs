@@ -380,6 +380,22 @@ function exportBehaviorSummary() {
     return out;
   }, {});
   const grouped = {};
+  // Sertakan semua murid aktif dalam cakupan peran, termasuk yang belum memiliki catatan.
+  readObjects_(ss, 'Murid').filter(x => isActive_(x.status_aktif)).forEach(student => {
+    if (role === ROLE.WALI_KELAS &&
+        (!str_(user.kelas_id) || str_(student.kelas_id) !== str_(user.kelas_id))) return;
+    if (role === ROLE.PEMBINA_ASRAMA &&
+        (!str_(user.area_asrama_id) || str_(student.area_asrama_id) !== str_(user.area_asrama_id))) return;
+    const id = str_(student.murid_id);
+    if (!id) return;
+    grouped[id] = {
+      name: str_(student.nama_murid) || '—',
+      className: classNames[str_(student.kelas_id)] || '',
+      areaName: areaNames[str_(student.area_asrama_id)] || '',
+      disipliner: 0, ringan: 0, sedang: 0, berat: 0, sangatBerat: 0,
+      indisiplinerTotal: 0, total: 0
+    };
+  });
   rows.forEach(r => {
     const id = str_(r.murid_id) || str_(r.nama_murid_snapshot);
     if (!grouped[id]) grouped[id] = {
