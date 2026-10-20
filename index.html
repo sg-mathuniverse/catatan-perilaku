@@ -292,7 +292,7 @@ function renderRecords(){
  const q=$('searchRecords').value.trim().toLocaleLowerCase('id');
  const type=$('typeFilter').value,area=$('areaFilter').value;
  const filtered=records.filter(r=>(!q||[r.name,r.className,r.areaName,r.behaviorName,r.category,r.reporter,r.reporterRole,r.notes,r.follow,r.location,r.locationPlace].join(' ').toLocaleLowerCase('id').includes(q))&&(!type||r.kind===type)&&(!area||r.locationGroup===area));
- const own=filtered.filter(r=>r.own),other=filtered;
+ const own=filtered.filter(r=>r.own),other=filtered.filter(r=>{const user=initialData?.user||{};if(role==='WALI_KELAS')return !!user.kelas_id&&String(r.classId)===String(user.kelas_id);if(role==='PEMBINA_ASRAMA')return !!user.area_asrama_id&&String(r.areaId)===String(user.area_asrama_id);return ['KESISWAAN','GURU_BK','DPA'].includes(role);});
  const ownCols=[['name','Nama Murid'],['date','Tanggal'],['time','Jam'],['behaviorName','Jenis Perilaku'],['kindLabel','Jenis Disipliner/Indisipliner'],['category','Kategori Perilaku'],['locationGroup','Lokasi Kejadian'],['locationPlace','Tempat Kejadian']];
  let otherCols=[];
  if(role==='WALI_KELAS'||role==='PEMBINA_ASRAMA')otherCols=[['name','Nama Murid'],['date','Tanggal'],['time','Jam'],['behaviorName','Jenis Perilaku'],['kindLabel','Jenis Disipliner/Indisipliner'],['category','Kategori Perilaku'],['locationGroup','Lokasi Kejadian'],['locationPlace','Tempat Kejadian'],['reporter','Nama Pelapor'],['reporterRole','Peran Pelapor'],['notes','Keterangan'],['follow','Intervensi']];
