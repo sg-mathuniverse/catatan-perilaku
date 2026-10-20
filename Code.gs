@@ -342,7 +342,7 @@ function getBehaviorRecords(previewRole, previewUserId) {
         nama_pelapor: str_(r.nama_pelapor_snapshot),
         peran_pelapor: str_(r.peran_pelapor_snapshot),
         tanggal_kejadian: formatDate_(r.tanggal_kejadian),
-        jam_kejadian: str_(r.jam_kejadian),
+        jam_kejadian: formatTime_(r.jam_kejadian),
         lokasi_kejadian: str_(r.lokasi_kejadian),
         jenis_perilaku: kind,
         nama_jenis_perilaku: str_(itemName),
@@ -539,7 +539,7 @@ function exportOtherBehaviorRecords() {
     }
     row.push(
       formatDate_(r.tanggal_kejadian),
-      str_(r.jam_kejadian),
+      formatTime_(r.jam_kejadian),
       str_(itemName) || str_(r.kategori_snapshot) || '—',
       kind === 'DISIPLIN' ? 'Disipliner' : kind === 'INDISIPLINER' ? 'Indisipliner' : kind,
       str_(r.kategori_snapshot),
@@ -789,6 +789,29 @@ function isValidIncidentDate_(value) {
   return date.getUTCFullYear() === year &&
     date.getUTCMonth() === month - 1 &&
     date.getUTCDate() === day;
+}
+
+function formatTime_(value) {
+  if (value === null || value === undefined || value === '') return '';
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'HH:mm');
+  }
+  if (typeof value === 'number' && isFinite(value)) {
+    // Waktu di Google Sheets kadang disimpan sebagai pecahan satu hari.
+    if (value >= 0 && value < 1) {
+      const totalMinutes = Math.round(value * 24 * 60);
+      return String(Math.floor(totalMinutes / 60) % 24).padStart(2, '0') + ':' +
+        String(totalMinutes % 60).padStart(2, '0');
+    }
+  }
+  const text = str_(value).trim();
+  const match = text.match(/(?:^|T|\\s)(\\d{1,2}):(\\d{2})(?::\\d{2})?/);
+  if (match) return match[1].padStart(2, '0') + ':' + match[2];
+  const parsed = new Date(text);
+  if (!isNaN(parsed.getTime()) && /1899|1900|GMT|\\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\\b/.test(text)) {
+    return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'HH:mm');
+  }
+  return text;
 }
 
 function formatDate_(value) {
