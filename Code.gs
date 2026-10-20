@@ -471,6 +471,90 @@ function exportBehaviorSummary() {
   }
 }
 
+/**
+ * Ekspor daftar rinci catatan murid di kelas wali yang dibuat oleh pelapor lain.
+ */
+function exportOtherBehaviorRecords() {
+  const user = getCurrentUser_();
+  const role = str_(user.peran_akses).toUpperCase();
+  if (role !== ROLE.WALI_KELAS) {
+    throw new Error('Ekspor daftar catatan dari pelapor lain hanya tersedia untuk Wali Kelas.');
+  }
+  if (!str_(user.kelas_id)) {
+    throw new Error('Akun Wali Kelas belum memiliki penugasan kelas.');
+  }
+
+  const ss = getSpreadsheet_();
+  const rows = readObjects_(ss, 'Catatan_Perilaku')
+    .filter(r => (!r.status_catatan || str_(r.status_catatan).toUpperCase() === 'AKTIF'))
+    .filter(r => str_(r.kelas_id_snapshot) === str_(user.kelas_id))
+    .filter(r => str_(r.pelapor_user_id) !== str_(user.user_id));
+
+  const disciplineNames = readObjects_(ss, 'Referensi_Disiplin').reduce((out, item) => {
+    out[str_(item.disiplin_id)] = str_(item.nama_disiplin);
+    return out;
+  }, {});
+  const indisciplineNames = readObjects_(ss, 'Referensi_Indisipliner').reduce((out, item) => {
+    out[str_(item.indisipliner_id)] = str_(item.nama_indisipliner);
+    return out;
+  }, {});
+  const headers = ['Nama Murid', 'Tanggal', 'Jam', 'Jenis Perilaku',
+    'Jenis Disipliner/Indisipliner', 'Kategori Perilaku', 'Lokasi Kejadian',
+    'Tempat Kejadian', 'Nama Pelapor', 'Peran Pelapor', 'Keterangan', 'Intervensi'];
+  const values = rows.map(r => {
+    const kind = str_(r.jenis_perilaku).toUpperCase();
+    const itemName = kind === 'DISIPLIN'
+      ? disciplineNames[str_(r.disiplin_id)]
+      : indisciplineNames[str_(r.indisipliner_id)];
+    const location = str_(r.lokasi_kejadian);
+    const parts = location.split(/\\s+[—–-]\\s+/);
+    return [
+      str_(r.nama_murid_snapshot) || '—',
+      formatDate_(r.tanggal_kejadian),
+      str_(r.jam_kejadian),
+      str_(itemName) || str_(r.kategori_snapshot) || '—',
+      kind === 'DISIPLIN' ? 'Disipliner' : kind === 'INDISIPLINER' ? 'Indisipliner' : kind,
+      str_(r.kategori_snapshot),
+      parts[0] || location,
+      parts.length > 1 ? parts.slice(1).join(' — ') : location,
+      str_(r.nama_pelapor_snapshot),
+      str_(r.peran_pelapor_snapshot),
+      str_(r.keterangan),
+      str_(r.intervensi)
+    ];
+  });
+
+  const title = 'Daftar Catatan Murid Kelas dari Semua Guru Pembina';
+  const temp = SpreadsheetApp.create(title);
+  try {
+    const sheet = temp.getSheets()[0];
+    sheet.setName('Catatan Murid Kelas');
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    if (values.length) sheet.getRange(2, 1, values.length, headers.length).setValues(values);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#eaf0ff').setWrap(true);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, Math.max(1, values.length + 1), headers.length).createFilter();
+    sheet.autoResizeColumns(1, headers.length);
+    sheet.setRowHeight(1, 36);
+    SpreadsheetApp.flush();
+
+    const exportUrl = 'https://docs.google.com/spreadsheets/d/' + temp.getId() + '/export?format=xlsx';
+    const response = UrlFetchApp.fetch(exportUrl, {
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+      muteHttpExceptions: true
+    });
+    if (response.getResponseCode() !== 200) {
+      throw new Error('Google Sheets gagal menyiapkan file Excel (HTTP ' + response.getResponseCode() + ').');
+    }
+    return {
+      filename: 'Daftar_Catatan_Murid_Kelas_Semua_Guru_Pembina.xlsx',
+      base64: Utilities.base64Encode(response.getBlob().getBytes())
+    };
+  } finally {
+    DriveApp.getFileById(temp.getId()).setTrashed(true);
+  }
+}
+
 function canSeeRecord_(user, role, record) {
   if (
     role === ROLE.ADMIN ||
