@@ -475,8 +475,7 @@ function exportBehaviorSummary() {
  * Ekspor daftar rinci catatan murid di kelas wali yang dibuat oleh pelapor lain.
  */
 /**
- * Ekspor daftar rinci catatan yang dibuat oleh pelapor lain, dibatasi
- * sesuai cakupan peran akun yang sedang masuk.
+ * Ekspor daftar rinci catatan dalam cakupan peran akun, termasuk catatan sendiri.
  */
 function exportOtherBehaviorRecords() {
   const user = getCurrentUser_();
@@ -494,8 +493,7 @@ function exportOtherBehaviorRecords() {
 
   const ss = getSpreadsheet_();
   let rows = readObjects_(ss, 'Catatan_Perilaku')
-    .filter(r => (!r.status_catatan || str_(r.status_catatan).toUpperCase() === 'AKTIF'))
-    .filter(r => str_(r.pelapor_user_id) !== str_(user.user_id));
+    .filter(r => (!r.status_catatan || str_(r.status_catatan).toUpperCase() === 'AKTIF'));
   if (role === ROLE.WALI_KELAS) {
     rows = rows.filter(r => str_(r.kelas_id_snapshot) === str_(user.kelas_id));
   } else if (role === ROLE.PEMBINA_ASRAMA) {
