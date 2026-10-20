@@ -456,14 +456,18 @@ function exportBehaviorSummary() {
     sheet.setRowHeight(1, 36);
     SpreadsheetApp.flush();
 
-    // Konversi langsung melalui DriveApp menghindari permintaan HTTP ekspor tambahan.
-    const xlsxBlob = DriveApp.getFileById(temp.getId()).getAs(MimeType.MICROSOFT_EXCEL);
+    const xlsxBlob = exportSpreadsheetToXlsx_(temp.getId());
     return {
       filename: title.replace(/[^a-zA-Z0-9 _-]/g, '').replace(/\s+/g, '_') + '.xlsx',
       base64: Utilities.base64Encode(xlsxBlob.getBytes())
     };
   } finally {
-    DriveApp.getFileById(temp.getId()).setTrashed(true);
+    // Pembersihan bersifat best-effort agar izin Drive yang belum tersedia tidak menggagalkan ekspor.
+    try {
+      DriveApp.getFileById(temp.getId()).setTrashed(true);
+    } catch (cleanupError) {
+      console.warn('File sementara tidak dapat dipindahkan ke Sampah: ' + cleanupError);
+    }
   }
 }
 
@@ -570,15 +574,36 @@ function exportOtherBehaviorRecords() {
     sheet.setRowHeight(1, 36);
     SpreadsheetApp.flush();
 
-    // Konversi langsung melalui DriveApp menghindari permintaan HTTP ekspor tambahan.
-    const xlsxBlob = DriveApp.getFileById(temp.getId()).getAs(MimeType.MICROSOFT_EXCEL);
+    const xlsxBlob = exportSpreadsheetToXlsx_(temp.getId());
     return {
       filename: (role === ROLE.WALI_KELAS ? 'Daftar_Catatan_Murid_Kelas_Semua_Guru_Pembina' : 'Daftar_Catatan_Murid_Semua_Guru_Pembina') + '.xlsx',
       base64: Utilities.base64Encode(xlsxBlob.getBytes())
     };
   } finally {
-    DriveApp.getFileById(temp.getId()).setTrashed(true);
+    // Pembersihan bersifat best-effort agar izin Drive yang belum tersedia tidak menggagalkan ekspor.
+    try {
+      DriveApp.getFileById(temp.getId()).setTrashed(true);
+    } catch (cleanupError) {
+      console.warn('File sementara tidak dapat dipindahkan ke Sampah: ' + cleanupError);
+    }
   }
+}
+
+/** Ekspor Google Spreadsheet menjadi XLSX melalui endpoint ekspor resmi. */
+function exportSpreadsheetToXlsx_(spreadsheetId) {
+  const url = 'https://docs.google.com/spreadsheets/d/' +
+    encodeURIComponent(spreadsheetId) + '/export?format=xlsx';
+  const response = UrlFetchApp.fetch(url, {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true,
+    followRedirects: true
+  });
+  const status = response.getResponseCode();
+  if (status !== 200) {
+    throw new Error('Ekspor XLSX gagal (HTTP ' + status + '): ' +
+      response.getContentText().slice(0, 500));
+  }
+  return response.getBlob().setContentType(MimeType.MICROSOFT_EXCEL);
 }
 
 function canSeeRecord_(user, role, record) {
