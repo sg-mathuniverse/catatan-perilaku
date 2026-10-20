@@ -145,6 +145,30 @@
 </main>
 </div>
 <script>
+(function(){
+  function revealStartupError(message){
+    var overlay=document.getElementById('loadingOverlay');
+    if(overlay) overlay.hidden=true;
+    var banner=document.getElementById('startupDiagnostic');
+    if(!banner){
+      banner=document.createElement('div');
+      banner.id='startupDiagnostic';
+      banner.setAttribute('role','alert');
+      banner.style.cssText='position:fixed;z-index:2000;left:16px;right:16px;top:16px;padding:16px;border:1px solid #e5a5a5;border-radius:12px;background:#fff0f0;color:#8b2020;font:14px/1.5 Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.12)';
+      document.body.appendChild(banner);
+    }
+    banner.textContent='Aplikasi gagal memulai JavaScript. Muat ulang halaman. Detail: '+String(message||'Kesalahan JavaScript tidak diketahui').slice(0,300);
+  }
+  window.addEventListener('error',function(event){
+    if(event && (event.error || event.message)) revealStartupError(event.message || (event.error && event.error.message));
+  });
+  window.addEventListener('unhandledrejection',function(event){
+    var reason=event && event.reason;
+    revealStartupError(reason && reason.message ? reason.message : reason);
+  });
+})();
+</script>
+<script>
 'use strict';
 const $ = id => document.getElementById(id);
 let initialData = null;
