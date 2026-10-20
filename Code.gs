@@ -36,7 +36,9 @@ function doGet() {
   getCurrentUser_();
 
   const cache = CacheService.getScriptCache();
-  const cacheKey = 'catatan_perilaku_github_frontend_v1';
+  // Naikkan versi cache setiap kali mekanisme pemuatan frontend diperbarui.
+  // Cache baru tidak akan menyajikan HTML lama yang tersimpan dengan key v1.
+  const cacheKey = 'catatan_perilaku_github_frontend_v2';
   let html = cache.get(cacheKey);
 
   if (!html) {
@@ -54,11 +56,11 @@ function doGet() {
     }
 
     html = response.getContentText('UTF-8');
-    if (!html || html.indexOf('Catatan Perilaku Murid') === -1) {
-      throw new Error('File index.html di GitHub kosong atau tidak valid.');
+    if (!html || html.indexOf('Catatan Perilaku Murid') === -1 || html.indexOf('id="recordsWorkspace"') === -1) {
+      throw new Error('File index.html di GitHub kosong, tidak valid, atau belum memuat tampilan Rekap Perilaku terbaru.');
     }
 
-    cache.put(cacheKey, html, 300);
+    cache.put(cacheKey, html, 60);
   }
 
   return HtmlService.createHtmlOutput(html)
