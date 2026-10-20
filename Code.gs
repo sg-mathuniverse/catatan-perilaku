@@ -483,12 +483,15 @@ function exportBehaviorSummary() {
 function exportOtherBehaviorRecords() {
   const user = getCurrentUser_();
   const role = str_(user.peran_akses).toUpperCase();
-  const allowed = [ROLE.WALI_KELAS, ROLE.KESISWAAN, ROLE.GURU_BK, ROLE.DPA];
+  const allowed = [ROLE.WALI_KELAS, ROLE.PEMBINA_ASRAMA, ROLE.KESISWAAN, ROLE.GURU_BK, ROLE.DPA];
   if (allowed.indexOf(role) < 0) {
     throw new Error('Peran akun ini tidak memiliki izin mengunduh daftar catatan dari pelapor lain.');
   }
   if (role === ROLE.WALI_KELAS && !str_(user.kelas_id)) {
     throw new Error('Akun Wali Kelas belum memiliki penugasan kelas.');
+  }
+  if (role === ROLE.PEMBINA_ASRAMA && !str_(user.area_asrama_id)) {
+    throw new Error('Akun Pembina Asrama belum memiliki penugasan area asrama.');
   }
 
   const ss = getSpreadsheet_();
@@ -497,6 +500,8 @@ function exportOtherBehaviorRecords() {
     .filter(r => str_(r.pelapor_user_id) !== str_(user.user_id));
   if (role === ROLE.WALI_KELAS) {
     rows = rows.filter(r => str_(r.kelas_id_snapshot) === str_(user.kelas_id));
+  } else if (role === ROLE.PEMBINA_ASRAMA) {
+    rows = rows.filter(r => str_(r.area_asrama_id_snapshot) === str_(user.area_asrama_id));
   }
 
   const classNames = readObjects_(ss, 'Kelas').reduce((out, item) => {
