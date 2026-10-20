@@ -312,23 +312,145 @@ function getBehaviorRecords(previewRole, previewUserId) {
       str_(r.status_catatan).toUpperCase() === 'AKTIF'
     );
 
+  const disciplineNames = readObjects_(ss, 'Referensi_Disiplin').reduce((out, item) => {
+    out[str_(item.disiplin_id)] = str_(item.nama_disiplin);
+    return out;
+  }, {});
+  const indisciplineNames = readObjects_(ss, 'Referensi_Indisipliner').reduce((out, item) => {
+    out[str_(item.indisipliner_id)] = str_(item.nama_indisipliner);
+    return out;
+  }, {});
+
   return records
     .filter(r => canSeeRecord_(scopeUser, effectiveRole, r))
-    .map(r => ({
-      catatan_id: str_(r.catatan_id),
-      nama_murid: str_(r.nama_murid_snapshot),
-      kelas_id: str_(r.kelas_id_snapshot),
-      area_asrama_id: str_(r.area_asrama_id_snapshot),
-      nama_pelapor: str_(r.nama_pelapor_snapshot),
-      peran_pelapor: str_(r.peran_pelapor_snapshot),
-      tanggal_kejadian: formatDate_(r.tanggal_kejadian),
-      jam_kejadian: str_(r.jam_kejadian),
-      lokasi_kejadian: str_(r.lokasi_kejadian),
-      jenis_perilaku: str_(r.jenis_perilaku),
-      kategori: str_(r.kategori_snapshot),
-      keterangan: str_(r.keterangan),
-      intervensi: str_(r.intervensi)
-    }));
+    .map(r => {
+      const kind = str_(r.jenis_perilaku).toUpperCase();
+      const itemName = kind === 'DISIPLIN'
+        ? disciplineNames[str_(r.disiplin_id)]
+        : indisciplineNames[str_(r.indisipliner_id)];
+      return {
+        catatan_id: str_(r.catatan_id),
+        murid_id: str_(r.murid_id),
+        is_own_record: str_(r.pelapor_user_id) === str_(scopeUser.user_id),
+        nama_murid: str_(r.nama_murid_snapshot),
+        kelas_id: str_(r.kelas_id_snapshot),
+        area_asrama_id: str_(r.area_asrama_id_snapshot),
+        nama_pelapor: str_(r.nama_pelapor_snapshot),
+        peran_pelapor: str_(r.peran_pelapor_snapshot),
+        tanggal_kejadian: formatDate_(r.tanggal_kejadian),
+        jam_kejadian: str_(r.jam_kejadian),
+        lokasi_kejadian: str_(r.lokasi_kejadian),
+        jenis_perilaku: kind,
+        nama_jenis_perilaku: str_(itemName),
+        kategori: str_(r.kategori_snapshot),
+        keterangan: str_(r.keterangan),
+        intervensi: str_(r.intervensi)
+      };
+    });
+}
+
+/**
+ * Membuat rekap Excel berdasarkan cakupan murid untuk peran yang diizinkan.
+ * Guru tidak memiliki ekspor agregat. Wali Kelas dan Pembina Asrama hanya
+ * memperoleh rekap kelas/area penugasannya; Kesiswaan, Guru BK, dan DPA
+ * memperoleh rekap seluruh murid.
+ */
+function exportBehaviorSummary() {
+  const user = getCurrentUser_();
+  const role = str_(user.peran_akses).toUpperCase();
+  const allowed = [ROLE.WALI_KELAS, ROLE.KESISWAAN, ROLE.GURU_BK, ROLE.DPA, ROLE.PEMBINA_ASRAMA];
+  if (allowed.indexOf(role) < 0) throw new Error('Peran akun ini tidak memiliki izin mengunduh rekap Excel.');
+
+  const ss = getSpreadsheet_();
+  let rows = readObjects_(ss, 'Catatan_Perilaku').filter(r =>
+    !r.status_catatan || str_(r.status_catatan).toUpperCase() === 'AKTIF'
+  );
+  if (role === ROLE.WALI_KELAS) {
+    rows = rows.filter(r => !!str_(user.kelas_id) && str_(r.kelas_id_snapshot) === str_(user.kelas_id));
+  } else if (role === ROLE.PEMBINA_ASRAMA) {
+    rows = rows.filter(r => !!str_(user.area_asrama_id) && str_(r.area_asrama_id_snapshot) === str_(user.area_asrama_id));
+  }
+
+  const classNames = readObjects_(ss, 'Kelas').reduce((out, x) => {
+    out[str_(x.kelas_id)] = str_(x.nama_kelas) || str_(x.kelas_id);
+    return out;
+  }, {});
+  const areaNames = readObjects_(ss, 'Area_Asrama').reduce((out, x) => {
+    out[str_(x.area_asrama_id)] = str_(x.nama_area) || str_(x.area_asrama_id);
+    return out;
+  }, {});
+  const grouped = {};
+  rows.forEach(r => {
+    const id = str_(r.murid_id) || str_(r.nama_murid_snapshot);
+    if (!grouped[id]) grouped[id] = {
+      name: str_(r.nama_murid_snapshot) || '—',
+      className: classNames[str_(r.kelas_id_snapshot)] || '',
+      areaName: areaNames[str_(r.area_asrama_id_snapshot)] || '',
+      disipliner: 0, ringan: 0, sedang: 0, berat: 0, sangatBerat: 0,
+      indisiplinerTotal: 0, total: 0
+    };
+    const item = grouped[id];
+    item.total++;
+    const kind = str_(r.jenis_perilaku).toUpperCase();
+    if (kind === 'DISIPLIN') item.disipliner++;
+    else if (kind === 'INDISIPLINER') {
+      item.indisiplinerTotal++;
+      const category = str_(r.kategori_snapshot).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (category === 'ringan') item.ringan++;
+      else if (category === 'sedang') item.sedang++;
+      else if (category === 'berat') item.berat++;
+      else if (category === 'sangat berat' || category === 'sangat_berat') item.sangatBerat++;
+    }
+  });
+
+  const includeClass = role === ROLE.KESISWAAN || role === ROLE.GURU_BK;
+  const includeArea = role === ROLE.DPA;
+  const headers = ['Nama Siswa'];
+  if (includeClass) headers.push('Kelas');
+  if (includeArea) headers.push('Area Asrama');
+  headers.push('Catatan Disipliner', 'Catatan Indisipliner - Ringan', 'Catatan Indisipliner - Sedang',
+    'Catatan Indisipliner - Berat', 'Catatan Indisipliner - Sangat Berat',
+    'Total Catatan Indisipliner', 'Total Catatan');
+  const values = Object.keys(grouped).map(id => grouped[id])
+    .sort((a, b) => a.name.localeCompare(b.name, 'id'))
+    .map(item => {
+      const row = [item.name];
+      if (includeClass) row.push(item.className || '—');
+      if (includeArea) row.push(item.areaName || '—');
+      row.push(item.disipliner, item.ringan, item.sedang, item.berat, item.sangatBerat, item.indisiplinerTotal, item.total);
+      return row;
+    });
+
+  const title = role === ROLE.WALI_KELAS ? 'Rekap Perilaku Anak Wali'
+    : role === ROLE.PEMBINA_ASRAMA ? 'Rekap Perilaku Anak Area' : 'Rekap Perilaku Semua Murid';
+  const temp = SpreadsheetApp.create(title);
+  try {
+    const sheet = temp.getSheets()[0];
+    sheet.setName('Rekap Perilaku');
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    if (values.length) sheet.getRange(2, 1, values.length, headers.length).setValues(values);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#eaf0ff').setWrap(true);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, Math.max(1, values.length + 1), headers.length).createFilter();
+    sheet.autoResizeColumns(1, headers.length);
+    sheet.setRowHeight(1, 36);
+    SpreadsheetApp.flush();
+
+    const exportUrl = 'https://docs.google.com/spreadsheets/d/' + temp.getId() + '/export?format=xlsx';
+    const response = UrlFetchApp.fetch(exportUrl, {
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+      muteHttpExceptions: true
+    });
+    if (response.getResponseCode() !== 200) {
+      throw new Error('Google Sheets gagal menyiapkan file Excel (HTTP ' + response.getResponseCode() + ').');
+    }
+    return {
+      filename: title.replace(/[^a-zA-Z0-9 _-]/g, '').replace(/\s+/g, '_') + '.xlsx',
+      base64: Utilities.base64Encode(response.getBlob().getBytes())
+    };
+  } finally {
+    DriveApp.getFileById(temp.getId()).setTrashed(true);
+  }
 }
 
 function canSeeRecord_(user, role, record) {
