@@ -162,8 +162,49 @@ function populateStudents(){const el=$('studentInput');el.replaceChildren(new Op
 function populateBehaviorItems(){const el=$('categoryInput');el.replaceChildren(new Option('Pilih item perilaku',''));const ind=$('kindInput').value==='INDISIPLINER';const items=(ind?(initialData?.indiscipline||[]):(initialData?.discipline||[])).slice().sort((a,b)=>(Number(a.urutan_tampil)||999)-(Number(b.urutan_tampil)||999));items.forEach(x=>el.add(new Option(ind?x.nama_indisipliner:x.nama_disiplin,ind?x.indisipliner_id:x.disiplin_id)));const label=document.querySelector('label[for="categoryInput"]');if(label)label.textContent=ind?'Item indisipliner *':'Item disiplin positif *';}
 function setupAdminPreview(){let controls=$('adminPreviewControls');if(!controls){controls=document.createElement('div');controls.id='adminPreviewControls';controls.style.cssText='display:none;align-items:center;gap:6px;flex-wrap:wrap';controls.innerHTML='<select id="previewRole" class="filter-select" aria-label="Pratinjau peran"></select><select id="previewUser" class="filter-select" aria-label="Akun contoh"></select><button id="previewApply" class="btn btn-small">Pratinjau</button>';document.querySelector('.top-actions').prepend(controls);}if(initialData.user.peran!=='ADMIN'){controls.style.display='none';return;}controls.style.display='flex';const role=$('previewRole');role.replaceChildren(...Object.keys(roleLabels).map(k=>new Option(roleLabels[k],k)));role.value=activePreviewRole||'ADMIN';role.onchange=populatePreviewUsers; $('previewApply').onclick=()=>{const selected=role.value;activePreviewRole=selected==='ADMIN'?'':selected;activePreviewUserId=activePreviewRole?$('previewUser').value:'';if(activePreviewRole&&!activePreviewUserId){showMessage('Pilih akun contoh aktif untuk peran '+roleLabels[activePreviewRole]+'.',true);return;}setPreviewFormState();loadRecords();};populatePreviewUsers();}
 function populatePreviewUsers(){const select=$('previewUser');if(!select||!initialData)return;const role=$('previewRole').value;const users=(initialData.previewUsers||[]).filter(u=>u.peran_akses===role);select.replaceChildren(new Option(users.length?'Pilih akun contoh…':'Tidak ada akun aktif',''));users.forEach(u=>select.add(new Option((u.nama||u.email)+' — '+u.email,u.user_id)));select.style.display=role==='ADMIN'?'none':'inline-block';if(users.length===1)select.value=users[0].user_id;}
-function setPreviewFormState(){const isPreview=Boolean(activePreviewRole);$('behaviorForm').querySelectorAll('input,select,textarea,button').forEach(el=>el.disabled=isPreview);const notice=document.querySelector('#view-new .notice');if(notice){notice.style.display=isPreview?'flex':'none';if(isPreview)notice.lastElementChild.innerHTML='<strong>Mode pratinjau aktif</strong>Form dinonaktifkan agar catatan tidak tersimpan atas nama administrator.';}document.querySelector('.user-meta span').textContent=(roleLabels[initialData.user.peran]||initialData.user.peran)+(isPreview?' · Pratinjau '+roleLabels[activePreviewRole]:'')+' · '+initialData.user.email;}
-function loadRecords(){if(!initialData)return;runServer('getBehaviorRecords',{role:activePreviewRole,userId:activePreviewUserId},data=>{records=(data||[]).map(normalizeRecord).sort((a,b)=>String(b.date).localeCompare(String(a.date)));renderDashboard();renderRecords();hideMessage();});}
+function setPreviewFormState(){
+  const isPreview=Boolean(activePreviewRole);
+  $('behaviorForm').querySelectorAll('input,select,textarea,button').forEach(el=>el.disabled=isPreview);
+  const notice=document.querySelector('#view-new .notice');
+  if(notice){
+    notice.style.display=isPreview?'flex':'none';
+    if(isPreview)notice.lastElementChild.innerHTML='<strong>Mode pratinjau aktif</strong>Form dinonaktifkan di tampilan. Backend tetap wajib menolak penyimpanan saat permintaan berasal dari mode pratinjau.';
+  }
+  let banner=$('adminPreviewBanner');
+  if(!banner){
+    banner=document.createElement('div');
+    banner.id='adminPreviewBanner';
+    banner.className='notice';
+    banner.style.borderColor='#f0d69a';
+    banner.style.background='#fff8e9';
+    banner.style.color='#7f5a17';
+    banner.innerHTML='<span class="notice-icon">◉</span><div><strong id="adminPreviewTitle">Mode pratinjau administrator</strong><span id="adminPreviewDetail"></span></div>';
+    document.querySelector('.content').prepend(banner);
+  }
+  banner.style.display=isPreview?'flex':'none';
+  if(isPreview){
+    const user=(initialData.previewUsers||[]).find(u=>String(u.user_id)===String(activePreviewUserId));
+    $('adminPreviewTitle').textContent='PRATINJAU: '+(roleLabels[activePreviewRole]||activePreviewRole)+(user?' — '+(user.nama||user.email):'');
+    $('adminPreviewDetail').textContent=' Rekap mengikuti cakupan peran yang diuji. Untuk Guru, hanya catatan dengan pelapor_user_id milik akun Guru terpilih yang boleh muncul. Identitas login tetap Administrator; ini bukan sesi login Guru yang sesungguhnya.';
+  }
+  const meta=document.querySelector('.user-meta span');
+  if(meta)meta.textContent=(roleLabels[initialData.user.peran]||initialData.user.peran)+(isPreview?' · PRATINJAU '+(roleLabels[activePreviewRole]||activePreviewRole):'')+' · '+initialData.user.email;
+  const pill=document.querySelector('.demo-pill');
+  if(pill){
+    pill.textContent=isPreview?'◉ PRATINJAU · BACA SAJA':'● TERHUBUNG';
+    pill.style.background=isPreview?'#fff3d9':'#e8f7f3';
+    pill.style.color=isPreview?'#8c5a05':'#16816f';
+  }
+  const studentStat=document.querySelectorAll('.stat-card')[3];
+  if(studentStat&&isPreview){
+    studentStat.querySelector('.stat-value').textContent='—';
+    studentStat.querySelector('.stat-foot').textContent='Jumlah murid tidak disimulasikan dalam pratinjau';
+  }else if(studentStat&&initialData){
+    studentStat.querySelector('.stat-value').textContent=(initialData.students||[]).length;
+    studentStat.querySelector('.stat-foot').textContent='Daftar murid aktif yang diberikan backend';
+  }
+}
+function loadRecords(){if(!initialData)return;runServer('getBehaviorRecords',{role:activePreviewRole,userId:activePreviewUserId},data=>{records=(data||[]).map(normalizeRecord).sort((a,b)=>String(b.date).localeCompare(String(a.date)));renderDashboard();renderRecords();setPreviewFormState();hideMessage();});}
 function renderRows(items,target,mode){const el=$(target);if(!el)return;if(!items.length){el.innerHTML='<tr><td colspan="'+(mode==='recent'?5:6)+'" class="empty-state">Belum ada catatan yang dapat ditampilkan.</td></tr>';return;}el.innerHTML=items.map(r=>{const student='<div class="student-cell"><div class="student-avatar">'+escapeHtml(r.initials)+'</div><div><div class="student-name">'+escapeHtml(r.name)+'</div><div class="student-detail">'+escapeHtml(r.className)+'</div></div></div>';if(mode==='recent')return '<tr><td>'+student+'</td><td>'+dateLabel(r.date)+'</td><td>'+kindTag(r.kind)+'</td><td>'+escapeHtml(r.category||'—')+'</td><td>'+escapeHtml(r.reporter||'—')+'</td></tr>';return '<tr><td>'+student+'</td><td>'+dateLabel(r.date)+'</td><td>'+kindTag(r.kind)+'</td><td>'+escapeHtml(r.category||'—')+'</td><td>'+escapeHtml(r.location||'—')+'</td><td>'+escapeHtml(r.reporter||'—')+'</td></tr>';}).join('');}
 function renderDashboard(){const good=records.filter(r=>r.kind==='DISIPLIN').length;const bad=records.filter(r=>r.kind==='INDISIPLINER').length;$('statTotal').textContent=records.length;$('statGood').textContent=good;$('statFollow').textContent=bad;const statCards=document.querySelectorAll('.stat-card');if(statCards[0])statCards[0].querySelector('.stat-label').textContent='Total catatan';if(statCards[1])statCards[1].querySelector('.stat-label').textContent='Disiplin positif';if(statCards[2])statCards[2].querySelector('.stat-label').textContent='Catatan indisipliner';if(statCards[3]){statCards[3].querySelector('.stat-label').textContent='Murid aktif';statCards[3].querySelector('.stat-value').textContent=(initialData?.students||[]).length;statCards[3].querySelector('.stat-foot').textContent='Daftar murid aktif di database';}const foot=statCards[0]?.querySelector('.stat-foot');if(foot)foot.textContent='Catatan yang terlihat oleh akun ini';renderRows(records.slice(0,5),'recentBody','recent');renderBreakdown();renderChart();}
 function renderBreakdown(){const total=records.length||1;const good=records.filter(r=>r.kind==='DISIPLIN').length;const bad=records.filter(r=>r.kind==='INDISIPLINER').length;const data=[{name:'Disiplin positif',value:Math.round(good/total*100),count:good,color:'teal'},{name:'Indisipliner',value:Math.round(bad/total*100),count:bad,color:'red'},{name:'Lokasi kelas',value:Math.round(records.filter(r=>/kelas/i.test(r.location)).length/total*100),count:records.filter(r=>/kelas/i.test(r.location)).length,color:'blue'},{name:'Lokasi asrama',value:Math.round(records.filter(r=>/asrama/i.test(r.location)).length/total*100),count:records.filter(r=>/asrama/i.test(r.location)).length,color:'amber'}];$('breakdown').innerHTML=data.map(d=>'<div class="breakdown-row"><div class="breakdown-label"><span>'+d.name+'</span><strong>'+d.count+' <span style="color:#9aa3b4;font-weight:500">('+d.value+'%)</span></strong></div><div class="track"><div class="fill '+d.color+'" style="width:'+d.value+'%"></div></div></div>').join('');}
