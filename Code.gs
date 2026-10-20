@@ -93,8 +93,7 @@ function getInitialData() {
     }));
 
   const classes = allClasses.filter(x => {
-    if (user.peran_akses === ROLE.GURU ||
-        user.peran_akses === ROLE.WALI_KELAS) {
+    if (user.peran_akses === ROLE.GURU) {
       return !!str_(user.kelas_id) &&
         str_(x.kelas_id) === str_(user.kelas_id);
     }
@@ -382,7 +381,12 @@ function canAccessStudent_(user, student) {
     return true;
   }
 
-  if (role === ROLE.GURU || role === ROLE.WALI_KELAS) {
+  if (role === ROLE.WALI_KELAS) {
+    // Wali kelas dapat mencatat perilaku murid lintas kelas.
+    return true;
+  }
+
+  if (role === ROLE.GURU) {
     return !!str_(user.kelas_id) &&
       str_(student.kelas_id) === str_(user.kelas_id);
   }
