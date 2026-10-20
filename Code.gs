@@ -346,14 +346,19 @@ function canSeeRecord_(user, role, record) {
     return str_(record.pelapor_user_id) === str_(user.user_id);
   }
 
+  const reportedByCurrentUser =
+    str_(record.pelapor_user_id) === str_(user.user_id);
+
   if (role === ROLE.WALI_KELAS) {
-    return !!str_(user.kelas_id) &&
+    const belongsToHomeroomClass = !!str_(user.kelas_id) &&
       str_(record.kelas_id_snapshot) === str_(user.kelas_id);
+    return reportedByCurrentUser || belongsToHomeroomClass;
   }
 
   if (role === ROLE.PEMBINA_ASRAMA) {
-    return !!str_(user.area_asrama_id) &&
+    const belongsToDormArea = !!str_(user.area_asrama_id) &&
       str_(record.area_asrama_id_snapshot) === str_(user.area_asrama_id);
+    return reportedByCurrentUser || belongsToDormArea;
   }
 
   return false;
