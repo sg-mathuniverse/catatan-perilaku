@@ -456,17 +456,11 @@ function exportBehaviorSummary() {
     sheet.setRowHeight(1, 36);
     SpreadsheetApp.flush();
 
-    const exportUrl = 'https://docs.google.com/spreadsheets/d/' + temp.getId() + '/export?format=xlsx';
-    const response = UrlFetchApp.fetch(exportUrl, {
-      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
-      muteHttpExceptions: true
-    });
-    if (response.getResponseCode() !== 200) {
-      throw new Error('Google Sheets gagal menyiapkan file Excel (HTTP ' + response.getResponseCode() + ').');
-    }
+    // Konversi langsung melalui DriveApp menghindari permintaan HTTP ekspor tambahan.
+    const xlsxBlob = DriveApp.getFileById(temp.getId()).getAs(MimeType.MICROSOFT_EXCEL);
     return {
       filename: title.replace(/[^a-zA-Z0-9 _-]/g, '').replace(/\s+/g, '_') + '.xlsx',
-      base64: Utilities.base64Encode(response.getBlob().getBytes())
+      base64: Utilities.base64Encode(xlsxBlob.getBytes())
     };
   } finally {
     DriveApp.getFileById(temp.getId()).setTrashed(true);
@@ -576,17 +570,11 @@ function exportOtherBehaviorRecords() {
     sheet.setRowHeight(1, 36);
     SpreadsheetApp.flush();
 
-    const exportUrl = 'https://docs.google.com/spreadsheets/d/' + temp.getId() + '/export?format=xlsx';
-    const response = UrlFetchApp.fetch(exportUrl, {
-      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
-      muteHttpExceptions: true
-    });
-    if (response.getResponseCode() !== 200) {
-      throw new Error('Google Sheets gagal menyiapkan file Excel (HTTP ' + response.getResponseCode() + ').');
-    }
+    // Konversi langsung melalui DriveApp menghindari permintaan HTTP ekspor tambahan.
+    const xlsxBlob = DriveApp.getFileById(temp.getId()).getAs(MimeType.MICROSOFT_EXCEL);
     return {
       filename: (role === ROLE.WALI_KELAS ? 'Daftar_Catatan_Murid_Kelas_Semua_Guru_Pembina' : 'Daftar_Catatan_Murid_Semua_Guru_Pembina') + '.xlsx',
-      base64: Utilities.base64Encode(response.getBlob().getBytes())
+      base64: Utilities.base64Encode(xlsxBlob.getBytes())
     };
   } finally {
     DriveApp.getFileById(temp.getId()).setTrashed(true);
