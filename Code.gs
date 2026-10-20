@@ -109,7 +109,9 @@ function getInitialData() {
     user: {
       nama: str_(user.nama),
       email: str_(user.email),
-      peran: user.peran_akses
+      peran: user.peran_akses,
+      kelas_id: str_(user.kelas_id),
+      area_asrama_id: str_(user.area_asrama_id)
     },
     roles: Object.keys(ROLE),
     classes: classes,
