@@ -474,22 +474,37 @@ function exportBehaviorSummary() {
 /**
  * Ekspor daftar rinci catatan murid di kelas wali yang dibuat oleh pelapor lain.
  */
+/**
+ * Ekspor daftar rinci catatan yang dibuat oleh pelapor lain, dibatasi
+ * sesuai cakupan peran akun yang sedang masuk.
+ */
 function exportOtherBehaviorRecords() {
   const user = getCurrentUser_();
   const role = str_(user.peran_akses).toUpperCase();
-  if (role !== ROLE.WALI_KELAS) {
-    throw new Error('Ekspor daftar catatan dari pelapor lain hanya tersedia untuk Wali Kelas.');
+  const allowed = [ROLE.WALI_KELAS, ROLE.KESISWAAN, ROLE.GURU_BK, ROLE.DPA];
+  if (allowed.indexOf(role) < 0) {
+    throw new Error('Peran akun ini tidak memiliki izin mengunduh daftar catatan dari pelapor lain.');
   }
-  if (!str_(user.kelas_id)) {
+  if (role === ROLE.WALI_KELAS && !str_(user.kelas_id)) {
     throw new Error('Akun Wali Kelas belum memiliki penugasan kelas.');
   }
 
   const ss = getSpreadsheet_();
-  const rows = readObjects_(ss, 'Catatan_Perilaku')
+  let rows = readObjects_(ss, 'Catatan_Perilaku')
     .filter(r => (!r.status_catatan || str_(r.status_catatan).toUpperCase() === 'AKTIF'))
-    .filter(r => str_(r.kelas_id_snapshot) === str_(user.kelas_id))
     .filter(r => str_(r.pelapor_user_id) !== str_(user.user_id));
+  if (role === ROLE.WALI_KELAS) {
+    rows = rows.filter(r => str_(r.kelas_id_snapshot) === str_(user.kelas_id));
+  }
 
+  const classNames = readObjects_(ss, 'Kelas').reduce((out, item) => {
+    out[str_(item.kelas_id)] = str_(item.nama_kelas) || str_(item.kelas_id);
+    return out;
+  }, {});
+  const areaNames = readObjects_(ss, 'Area_Asrama').reduce((out, item) => {
+    out[str_(item.area_asrama_id)] = str_(item.nama_area) || str_(item.area_asrama_id);
+    return out;
+  }, {});
   const disciplineNames = readObjects_(ss, 'Referensi_Disiplin').reduce((out, item) => {
     out[str_(item.disiplin_id)] = str_(item.nama_disiplin);
     return out;
@@ -498,18 +513,29 @@ function exportOtherBehaviorRecords() {
     out[str_(item.indisipliner_id)] = str_(item.nama_indisipliner);
     return out;
   }, {});
-  const headers = ['Nama Murid', 'Tanggal', 'Jam', 'Jenis Perilaku',
-    'Jenis Disipliner/Indisipliner', 'Kategori Perilaku', 'Lokasi Kejadian',
-    'Tempat Kejadian', 'Nama Pelapor', 'Peran Pelapor', 'Keterangan', 'Intervensi'];
+
+  const headers = ['Nama Murid'];
+  if (role === ROLE.KESISWAAN || role === ROLE.GURU_BK) headers.push('Kelas');
+  if (role === ROLE.DPA) headers.push('Area Asrama');
+  headers.push('Tanggal', 'Jam', 'Jenis Perilaku', 'Jenis Disipliner/Indisipliner',
+    'Kategori Perilaku', 'Lokasi Kejadian', 'Tempat Kejadian',
+    'Nama Pelapor', 'Peran Pelapor', 'Keterangan', 'Intervensi');
+
   const values = rows.map(r => {
     const kind = str_(r.jenis_perilaku).toUpperCase();
     const itemName = kind === 'DISIPLIN'
       ? disciplineNames[str_(r.disiplin_id)]
       : indisciplineNames[str_(r.indisipliner_id)];
     const location = str_(r.lokasi_kejadian);
-    const parts = location.split(/\\s+[—–-]\\s+/);
-    return [
-      str_(r.nama_murid_snapshot) || '—',
+    const parts = location.split(/\s+[—–-]\s+/);
+    const row = [str_(r.nama_murid_snapshot) || '—'];
+    if (role === ROLE.KESISWAAN || role === ROLE.GURU_BK) {
+      row.push(classNames[str_(r.kelas_id_snapshot)] || str_(r.kelas_id_snapshot) || '—');
+    }
+    if (role === ROLE.DPA) {
+      row.push(areaNames[str_(r.area_asrama_id_snapshot)] || str_(r.area_asrama_id_snapshot) || '—');
+    }
+    row.push(
       formatDate_(r.tanggal_kejadian),
       str_(r.jam_kejadian),
       str_(itemName) || str_(r.kategori_snapshot) || '—',
@@ -521,14 +547,19 @@ function exportOtherBehaviorRecords() {
       str_(r.peran_pelapor_snapshot),
       str_(r.keterangan),
       str_(r.intervensi)
-    ];
+    );
+    return row;
   });
 
-  const title = 'Daftar Catatan Murid Kelas dari Semua Guru Pembina';
+  const title = role === ROLE.WALI_KELAS
+    ? 'Daftar Catatan Murid Kelas dari Semua Guru Pembina'
+    : role === ROLE.DPA
+      ? 'Daftar Catatan Murid dari Semua Guru Pembina - DPA'
+      : 'Daftar Catatan Murid dari Semua Guru Pembina';
   const temp = SpreadsheetApp.create(title);
   try {
     const sheet = temp.getSheets()[0];
-    sheet.setName('Catatan Murid Kelas');
+    sheet.setName('Catatan Murid');
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     if (values.length) sheet.getRange(2, 1, values.length, headers.length).setValues(values);
     sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#eaf0ff').setWrap(true);
@@ -547,7 +578,7 @@ function exportOtherBehaviorRecords() {
       throw new Error('Google Sheets gagal menyiapkan file Excel (HTTP ' + response.getResponseCode() + ').');
     }
     return {
-      filename: 'Daftar_Catatan_Murid_Kelas_Semua_Guru_Pembina.xlsx',
+      filename: (role === ROLE.WALI_KELAS ? 'Daftar_Catatan_Murid_Kelas_Semua_Guru_Pembina' : 'Daftar_Catatan_Murid_Semua_Guru_Pembina') + '.xlsx',
       base64: Utilities.base64Encode(response.getBlob().getBytes())
     };
   } finally {
