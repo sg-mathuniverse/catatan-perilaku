@@ -92,13 +92,8 @@ function getInitialData() {
       area_asrama_id: str_(x.area_asrama_id)
     }));
 
-  const classes = allClasses.filter(x => {
-    if (user.peran_akses === ROLE.GURU) {
-      return !!str_(user.kelas_id) &&
-        str_(x.kelas_id) === str_(user.kelas_id);
-    }
-    return true;
-  });
+  // Guru dan wali kelas dapat memilih murid dari seluruh kelas.
+  const classes = allClasses;
 
   const dormAreas = allDormAreas.filter(x => {
     if (user.peran_akses === ROLE.PEMBINA_ASRAMA) {
@@ -381,14 +376,9 @@ function canAccessStudent_(user, student) {
     return true;
   }
 
-  if (role === ROLE.WALI_KELAS) {
-    // Wali kelas dapat mencatat perilaku murid lintas kelas.
+  if (role === ROLE.WALI_KELAS || role === ROLE.GURU) {
+    // Guru dan wali kelas dapat mencatat perilaku murid lintas kelas.
     return true;
-  }
-
-  if (role === ROLE.GURU) {
-    return !!str_(user.kelas_id) &&
-      str_(student.kelas_id) === str_(user.kelas_id);
   }
 
   if (role === ROLE.PEMBINA_ASRAMA) {
