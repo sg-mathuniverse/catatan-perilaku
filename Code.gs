@@ -114,9 +114,11 @@ function getInitialData() {
     dormAreas: dormAreas,
     students: students,
     discipline: readObjects_(ss, 'Referensi_Disiplin')
-      .filter(x => isActive_(x.status_aktif)),
+      .filter(x => isActive_(x.status_aktif))
+      .map(x => Object.assign({}, x, { ruang_lingkup: ruangLingkup_(x, 'disiplin_id') })),
     indiscipline: readObjects_(ss, 'Referensi_Indisipliner')
-      .filter(x => isActive_(x.status_aktif)),
+      .filter(x => isActive_(x.status_aktif))
+      .map(x => Object.assign({}, x, { ruang_lingkup: ruangLingkup_(x, 'indisipliner_id') })),
     previewUsers: user.peran_akses === ROLE.ADMIN
       ? readObjects_(ss, 'Pengguna')
           .filter(x => isActive_(x.status_aktif))
@@ -197,22 +199,21 @@ function saveBehavior(payload) {
   let disciplineId = '';
   let indisciplineId = '';
   let category = '';
+  let ruangLingkup = '';
 
   if (kind === 'DISIPLIN') {
     disciplineId = str_(payload.disiplin_id);
-    const valid = readObjects_(ss, 'Referensi_Disiplin')
-      .some(x =>
-        str_(x.disiplin_id) === disciplineId && isActive_(x.status_aktif)
-      );
-    if (!valid) throw new Error('Pilih item disiplin yang valid.');
+    const item = readObjects_(ss, 'Referensi_Disiplin')
+      .find(x => str_(x.disiplin_id) === disciplineId && isActive_(x.status_aktif));
+    if (!item) throw new Error('Pilih item disiplin yang valid.');
+    ruangLingkup = ruangLingkup_(item, 'disiplin_id');
   } else {
     indisciplineId = str_(payload.indisipliner_id);
     const item = readObjects_(ss, 'Referensi_Indisipliner')
-      .find(x =>
-        str_(x.indisipliner_id) === indisciplineId && isActive_(x.status_aktif)
-      );
+      .find(x => str_(x.indisipliner_id) === indisciplineId && isActive_(x.status_aktif));
     if (!item) throw new Error('Pilih item indisipliner yang valid.');
     category = str_(item.kategori);
+    ruangLingkup = ruangLingkup_(item, 'indisipliner_id');
   }
 
   const now = new Date();
@@ -234,6 +235,7 @@ function saveBehavior(payload) {
     jenis_perilaku: kind,
     disiplin_id: disciplineId,
     indisipliner_id: indisciplineId,
+    ruang_lingkup: ruangLingkup,
     kategori_snapshot: category,
     keterangan: notes,
     intervensi: intervention,
@@ -320,6 +322,14 @@ function getBehaviorRecords(previewRole, previewUserId) {
     out[str_(item.indisipliner_id)] = str_(item.nama_indisipliner);
     return out;
   }, {});
+  const disciplineScopes = readObjects_(ss, 'Referensi_Disiplin').reduce((out, item) => {
+    out[str_(item.disiplin_id)] = ruangLingkup_(item, 'disiplin_id');
+    return out;
+  }, {});
+  const indisciplineScopes = readObjects_(ss, 'Referensi_Indisipliner').reduce((out, item) => {
+    out[str_(item.indisipliner_id)] = ruangLingkup_(item, 'indisipliner_id');
+    return out;
+  }, {});
 
   return records
     .filter(r => canSeeRecord_(scopeUser, effectiveRole, r))
@@ -328,6 +338,9 @@ function getBehaviorRecords(previewRole, previewUserId) {
       const itemName = kind === 'DISIPLIN'
         ? disciplineNames[str_(r.disiplin_id)]
         : indisciplineNames[str_(r.indisipliner_id)];
+      const scope = str_(r.ruang_lingkup) || (kind === 'DISIPLIN'
+        ? disciplineScopes[str_(r.disiplin_id)]
+        : indisciplineScopes[str_(r.indisipliner_id)]) || '';
       return {
         catatan_id: str_(r.catatan_id),
         murid_id: str_(r.murid_id),
@@ -342,6 +355,7 @@ function getBehaviorRecords(previewRole, previewUserId) {
         lokasi_kejadian: str_(r.lokasi_kejadian),
         jenis_perilaku: kind,
         nama_jenis_perilaku: str_(itemName),
+        ruang_lingkup: scope,
         kategori: str_(r.kategori_snapshot),
         keterangan: str_(r.keterangan),
         intervensi: str_(r.intervensi)
@@ -749,6 +763,20 @@ function readObjects_(ss, sheetName) {
       if (header) obj[header] = row[i];
       return obj;
     }, {}));
+}
+
+/**
+ * Menormalkan ruang lingkup referensi. Jika kolom belum diisi, kode lama
+ * DS/IS diasumsikan Sekolah dan DA/IA diasumsikan Asrama.
+ */
+function ruangLingkup_(item, idField) {
+  const raw = str_(item.ruang_lingkup || item['Ruang Lingkup'] || item['ruang lingkup'] || item.lingkungan).toUpperCase();
+  if (raw.indexOf('SEKOLAH') >= 0) return 'SEKOLAH';
+  if (raw.indexOf('ASRAMA') >= 0) return 'ASRAMA';
+  const id = str_(item[idField]).toUpperCase();
+  if (/^[DI]S\d/.test(id)) return 'SEKOLAH';
+  if (/^[DI]A\d/.test(id)) return 'ASRAMA';
+  return '';
 }
 
 function getHeaders_(ss, sheetName) {
