@@ -211,8 +211,13 @@ function syncStudentSearch(){const search=$('studentSearch'),select=$('studentIn
 function populateBehaviorItems(){
  const el=$('categoryInput'),search=$('categorySearch');el.replaceChildren(new Option('Pilih item perilaku',''));
  const ind=$('kindInput').value==='INDISIPLINER';
- const items=(ind?(initialData?.indiscipline||[]):(initialData?.discipline||[])).slice().sort((a,b)=>(Number(a.urutan_tampil)||999)-(Number(b.urutan_tampil)||999));
- behaviorChoices=items.map(x=>({id:String(ind?x.indisipliner_id:x.disiplin_id),label:String(ind?x.nama_indisipliner:x.nama_disiplin),search:String(ind?x.nama_indisipliner:x.nama_disiplin).toLocaleLowerCase('id')}));
+ const preferredScope=['PEMBINA_ASRAMA'].includes(initialData?.user?.peran)?'ASRAMA':['GURU','WALI_KELAS'].includes(initialData?.user?.peran)?'SEKOLAH':'';
+ const items=(ind?(initialData?.indiscipline||[]):(initialData?.discipline||[])).slice().sort((a,b)=>{
+  const scopeA=String(a.ruang_lingkup||'').toUpperCase(),scopeB=String(b.ruang_lingkup||'').toUpperCase();
+  const rankA=preferredScope?(scopeA===preferredScope?0:scopeA?1:2):0,rankB=preferredScope?(scopeB===preferredScope?0:scopeB?1:2):0;
+  return rankA-rankB||(Number(a.urutan_tampil)||999)-(Number(b.urutan_tampil)||999);
+ });
+ behaviorChoices=items.map(x=>{const scope=String(x.ruang_lingkup||'').toUpperCase();const scopeLabel=scope==='SEKOLAH'?'Sekolah':scope==='ASRAMA'?'Asrama':'';const label=String(ind?x.nama_indisipliner:x.nama_disiplin);return {id:String(ind?x.indisipliner_id:x.disiplin_id),label,scope:scopeLabel,search:(label+' '+scopeLabel).toLocaleLowerCase('id')}});
  behaviorChoices.forEach(x=>el.add(new Option(x.label,x.id)));
  if(search){search.value='';el.value='';search.setCustomValidity('');}
  const label=document.querySelector('label[for="categorySearch"]');if(label)label.textContent=ind?'Jenis Indisipliner *':'Jenis Disipliner *';renderAutocomplete('category');
@@ -222,7 +227,7 @@ function renderAutocomplete(type){
  if(!input||!menu||menu.hidden)return;
  const query=input.value.trim().toLocaleLowerCase('id'),filtered=(query?choices.filter(x=>x.search.includes(query)):choices).slice(0,80);
  if(!filtered.length){menu.innerHTML='<div class="autocomplete-empty">Tidak ada hasil yang cocok.</div>';return;}
- menu.innerHTML=filtered.map(x=>'<button type="button" class="autocomplete-option" data-autocomplete-type="'+type+'" data-choice-id="'+escapeHtml(x.id)+'">'+escapeHtml(x.label)+(student&&x.detail?'<small>'+escapeHtml(x.detail)+'</small>':'')+'</button>').join('');
+ menu.innerHTML=filtered.map(x=>'<button type="button" class="autocomplete-option" data-autocomplete-type="'+type+'" data-choice-id="'+escapeHtml(x.id)+'">'+escapeHtml(x.label)+(student&&x.detail?'<small>'+escapeHtml(x.detail)+'</small>':!student&&x.scope?'<small>Ruang Lingkup: '+escapeHtml(x.scope)+'</small>':'')+'</button>').join('');
 }
 function selectAutocomplete(type,id){const student=type==='student',choices=student?studentChoices:behaviorChoices,choice=choices.find(x=>x.id===String(id));if(!choice)return;$(student?'studentSearch':'categorySearch').value=choice.label;$(student?'studentInput':'categoryInput').value=choice.id;$(student?'studentSearch':'categorySearch').setCustomValidity('');$(student?'studentSuggestions':'categorySuggestions').hidden=true;}
 function setupAdminPreview(){let controls=$('adminPreviewControls');if(!controls){controls=document.createElement('div');controls.id='adminPreviewControls';controls.style.cssText='display:none;align-items:center;gap:6px;flex-wrap:wrap';controls.innerHTML='<select id="previewRole" class="filter-select" aria-label="Pratinjau peran"></select><select id="previewUser" class="filter-select" aria-label="Akun contoh"></select><button id="previewApply" class="btn btn-small">Pratinjau</button>';document.querySelector('.top-actions').prepend(controls);}if(initialData.user.peran!=='ADMIN'){controls.style.display='none';return;}controls.style.display='flex';const role=$('previewRole');role.replaceChildren(...Object.keys(roleLabels).map(k=>new Option(roleLabels[k],k)));role.value=activePreviewRole||'ADMIN';role.onchange=populatePreviewUsers; $('previewApply').onclick=()=>{const selected=role.value;activePreviewRole=selected==='ADMIN'?'':selected;activePreviewUserId=activePreviewRole?$('previewUser').value:'';if(activePreviewRole&&!activePreviewUserId){showMessage('Pilih akun contoh aktif untuk peran '+roleLabels[activePreviewRole]+'.',true);return;}setPreviewFormState();loadRecords();};populatePreviewUsers();}
