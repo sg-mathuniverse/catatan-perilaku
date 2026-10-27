@@ -97,13 +97,9 @@ function getInitialData() {
   // Guru dan wali kelas dapat memilih murid dari seluruh kelas.
   const classes = allClasses;
 
-  const dormAreas = allDormAreas.filter(x => {
-    if (user.peran_akses === ROLE.PEMBINA_ASRAMA) {
-      return !!str_(user.area_asrama_id) &&
-        str_(x.area_asrama_id) === str_(user.area_asrama_id);
-    }
-    return true;
-  });
+  // Semua area dimuat sebagai data referensi agar nama area murid tampil benar.
+  // Penugasan area membatasi rekap, bukan pilihan murid pada formulir pencatatan.
+  const dormAreas = allDormAreas;
 
   return {
     user: {
@@ -660,8 +656,9 @@ function canAccessStudent_(user, student) {
   }
 
   if (role === ROLE.PEMBINA_ASRAMA) {
-    return !!str_(user.area_asrama_id) &&
-      str_(student.area_asrama_id) === str_(user.area_asrama_id);
+    // Pembina boleh mencatat murid dari semua area; cakupan area hanya
+    // digunakan untuk membatasi daftar/reka p laporan yang ditampilkan.
+    return true;
   }
 
   return false;
